@@ -1,7 +1,7 @@
 :root {
   font-family: "Segoe UI", Arial, sans-serif;
-  color: #18213a;
-  background: #f4f6fb;
+  color: #173348;
+  background: #f5f8f8;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -9,15 +9,15 @@
   font-optical-sizing: auto;
   font-weight: 400;
 
-  --ink: #18213a;
-  --muted: #727d96;
-  --line: #e3e8f1;
-  --navy: #111b35;
-  --purple: #6648d7;
-  --purple-dark: #5034bd;
-  --purple-soft: #f1edff;
-  --blue: #3478d4;
-  --green: #188967;
+  --ink: #173348;
+  --muted: #667b89;
+  --line: #dce6e8;
+  --navy: #173348;
+  --purple: #16766d;
+  --purple-dark: #105f58;
+  --purple-soft: #eaf5f3;
+  --blue: #367b87;
+  --green: #238361;
   --green-soft: #eaf7f1;
   --red: #b8384b;
   --red-soft: #fff0f1;
@@ -33,8 +33,7 @@ body {
   min-height: 100vh;
   margin: 0;
   background:
-    radial-gradient(ellipse at 80% 0%, rgba(109, 83, 221, 0.08), transparent 35rem),
-    #f4f6fb;
+    #f5f8f8;
 }
 
 button,
@@ -1072,6 +1071,703 @@ input:focus-visible {
   *::before,
   *::after {
     scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+/* ==========================================================================
+   Mejoras de interfaz (Etapa 7)
+   Orden: variables y foco, cabecera, avance, formularios, estados de carga y
+   error, tarjetas de resultado, animaciones y adaptación a pantallas pequeñas.
+   ========================================================================== */
+
+:root {
+  --muted: #5d6882;
+  --focus: #2f55b8;
+}
+
+/* Foco visible con contraste suficiente sobre fondos claros y oscuros */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+[tabindex="-1"]:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 3px;
+}
+
+.topbar a:focus-visible {
+  outline-color: #fff;
+}
+
+.workflow-title-row h2:focus,
+.license-result:focus,
+.api-error:focus,
+#inicio:focus {
+  outline: 0;
+}
+
+.workflow-title-row h2:focus-visible,
+.license-result:focus-visible,
+.api-error:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 4px;
+  border-radius: 8px;
+}
+
+#consulta,
+#como-funciona,
+#privacidad {
+  scroll-margin-top: 20px;
+}
+
+/* Salto al contenido */
+.skip-link {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 10;
+  padding: 10px 16px;
+  border-radius: 8px;
+  color: #fff;
+  background: var(--navy);
+  font-size: 13px;
+  font-weight: 700;
+  transform: translateY(-200%);
+}
+
+.skip-link:focus {
+  transform: none;
+  outline: 3px solid #fff;
+  outline-offset: 2px;
+}
+
+/* Cabecera: franja con los colores de la bandera y navegación por secciones */
+.flag-strip {
+  height: 5px;
+  background: linear-gradient(90deg, #ffd100 0 50%, #1c3f94 50% 75%, #d52b1e 75% 100%);
+}
+
+.topnav {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.topnav a {
+  padding: 9px 12px;
+  border-radius: 8px;
+  color: #d5dbec;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: color 140ms ease, background 140ms ease;
+}
+
+.topnav a:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* Datos que se necesitarán */
+.prep-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 18px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.prep-list li {
+  padding: 7px 12px;
+  border: 1px solid #dcd6f6;
+  border-radius: 999px;
+  color: #43358f;
+  background: var(--purple-soft);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* Barra de avance */
+.stepper {
+  padding-bottom: 16px;
+  border-bottom: 0;
+}
+
+.progress-summary {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 0 38px 20px;
+  border-bottom: 1px solid var(--line);
+  background: #fcfcfe;
+}
+
+.progress-track {
+  height: 8px;
+  flex: 1;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e6e9f3;
+}
+
+.progress-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #6648d7, #3478d4);
+  transition: width 420ms ease;
+}
+
+.progress-label {
+  margin: 0;
+  flex: none;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* Formularios: texto y contraste más legibles */
+.form-field label {
+  font-size: 13px;
+}
+
+.field-helper,
+.field-error {
+  font-size: 12px;
+}
+
+.field-helper {
+  color: #66708a;
+}
+
+.form-field input::placeholder {
+  color: #8590a6;
+}
+
+.step-service {
+  color: #66708a;
+}
+
+.primary-button:focus-visible {
+  outline-offset: 3px;
+}
+
+.primary-button .spinner {
+  border-color: rgba(255, 255, 255, 0.4);
+  border-top-color: #fff;
+}
+
+/* Estado de carga */
+.status-region:empty {
+  display: none;
+}
+
+.loading-status {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid #dcd6f6;
+  border-radius: 10px;
+  color: #3d2f8f;
+  background: var(--purple-soft);
+}
+
+.loading-status strong {
+  display: block;
+  font-size: 13px;
+}
+
+.loading-status p {
+  margin: 2px 0 0;
+  color: #5a4aa8;
+  font-size: 12px;
+}
+
+.spinner {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  border: 2px solid rgba(102, 72, 215, 0.28);
+  border-top-color: var(--purple);
+  border-radius: 50%;
+}
+
+/* Errores con título, sugerencia y reintento */
+.api-error {
+  gap: 12px;
+  padding: 14px 16px;
+}
+
+.api-error strong {
+  font-size: 13px;
+}
+
+.api-error p {
+  color: #7a2a3b;
+  font-size: 13px;
+}
+
+.api-error .api-error-hint {
+  margin-top: 4px;
+  color: #5f1f2d;
+  font-weight: 600;
+}
+
+.retry-button {
+  min-height: 40px;
+  margin-top: 12px;
+  padding: 0 16px;
+  border: 1px solid var(--red);
+  border-radius: 9px;
+  color: var(--red);
+  background: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 140ms ease, color 140ms ease;
+}
+
+.retry-button:hover {
+  color: #fff;
+  background: var(--red);
+}
+
+/* Tarjetas de resultado */
+.status-pill {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  color: #43358f;
+  background: var(--purple-soft);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.plate-chip {
+  display: inline-flex;
+  align-items: stretch;
+  margin: 0 0 14px;
+  overflow: hidden;
+  border: 2px solid var(--navy);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.plate-chip-label {
+  display: grid;
+  place-items: center;
+  padding: 0 9px;
+  color: #fff;
+  background: var(--navy);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.plate-chip strong {
+  padding: 5px 14px;
+  color: var(--navy);
+  font-size: 19px;
+  letter-spacing: 0.14em;
+}
+
+.result-facts {
+  margin-top: 16px;
+}
+
+h3.result-overline {
+  margin: 0;
+}
+
+.license-result {
+  margin-top: 20px;
+}
+
+.stale-notice {
+  border-left: 4px solid #c27c0e;
+  font-weight: 600;
+}
+
+/* Pie de página */
+.page-footer {
+  flex-wrap: wrap;
+}
+
+.footer-disclaimer {
+  flex-basis: 100%;
+  color: var(--muted);
+  font-size: 11px;
+  letter-spacing: 0;
+}
+
+/* Animaciones discretas: solo si la persona no pidió reducir el movimiento */
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  .consultation-form,
+  .summary-card,
+  .license-result,
+  .api-error {
+    animation: aparecer 260ms ease-out both;
+  }
+
+  .spinner {
+    animation: girar 800ms linear infinite;
+  }
+}
+
+@keyframes aparecer {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes girar {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Pantallas medianas y pequeñas */
+@media (max-width: 850px) {
+  .topbar-note {
+    display: none;
+  }
+}
+
+@media (max-width: 600px) {
+  .topnav a {
+    padding: 9px 8px;
+    font-size: 12px;
+  }
+
+  .brand-name {
+    display: none;
+  }
+
+  .progress-summary {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    padding: 0 14px 16px;
+  }
+
+  .workflow-panel {
+    padding: 26px 18px 30px;
+  }
+
+  .workflow-title-row {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  /* En celular solo el paso actual muestra su texto */
+  .step-copy {
+    display: none;
+  }
+
+  .step-button.is-active .step-copy {
+    display: grid;
+  }
+
+  .step-connector {
+    min-width: 10px;
+    margin: 0 8px;
+  }
+
+  .form-field input {
+    font-size: 16px;
+  }
+
+  .reset-button,
+  .text-button,
+  .retry-button {
+    min-height: 44px;
+  }
+
+  .loading-status {
+    align-items: flex-start;
+  }
+}
+
+/* Presentación ciudadana: sobria, clara y centrada en completar el trámite. */
+body {
+  background: #f5f8f8;
+}
+
+.topbar {
+  height: 68px;
+  color: #173348;
+  background: #fff;
+  border-bottom: 1px solid #dfe8e9;
+  box-shadow: none;
+}
+
+.brand-mark {
+  color: #fff;
+  background: #16766d;
+  border: 0;
+  border-radius: 10px;
+  box-shadow: none;
+  font-size: 12px;
+  letter-spacing: 0.02em;
+}
+
+.brand-name {
+  color: #173348;
+  font-size: 16px;
+  letter-spacing: -0.02em;
+}
+
+.topnav a {
+  color: #476171;
+  font-size: 13px;
+}
+
+.topnav a:hover {
+  color: #105f58;
+  background: #eaf5f3;
+}
+
+.topbar-note {
+  color: #667b89;
+  letter-spacing: 0.06em;
+}
+
+.topbar a:focus-visible {
+  outline-color: #16766d;
+}
+
+.page-content {
+  width: min(1100px, calc(100% - 40px));
+  padding-top: 42px;
+}
+
+.page-heading {
+  align-items: flex-start;
+  margin-bottom: 24px;
+}
+
+.eyebrow {
+  color: #16766d;
+  letter-spacing: 0.1em;
+}
+
+.page-heading h1 {
+  font-size: clamp(32px, 4vw, 40px);
+  letter-spacing: -0.035em;
+}
+
+.page-heading h1 span {
+  color: #16766d;
+}
+
+.page-intro {
+  max-width: 640px;
+  color: #607684;
+  font-size: 16px;
+}
+
+.prep-list {
+  gap: 9px;
+  margin-top: 16px;
+}
+
+.prep-list li {
+  border-color: #dce7e8;
+  color: #42606c;
+  background: #fff;
+  font-size: 12px;
+}
+
+.workspace-card {
+  border-color: #dce6e8;
+  border-radius: 16px;
+  box-shadow: 0 8px 26px rgba(23, 51, 72, 0.055);
+}
+
+.stepper {
+  padding: 22px 34px;
+  background: #fff;
+}
+
+.step-button {
+  color: #647a88;
+}
+
+.step-title {
+  color: #3d5867;
+  font-size: 12px;
+}
+
+.step-button.is-active .step-title,
+.step-button.is-complete .step-title {
+  color: #173348;
+}
+
+.progress-summary {
+  padding: 0 34px 18px;
+  background: #fff;
+}
+
+.progress-fill {
+  background: #16766d;
+}
+
+.primary-button {
+  border-color: #16766d;
+  background: #16766d;
+  box-shadow: 0 5px 12px rgba(22, 118, 109, 0.16);
+}
+
+.primary-button:hover:not(:disabled) {
+  background: #105f58;
+  box-shadow: 0 7px 16px rgba(22, 118, 109, 0.22);
+}
+
+.primary-button:disabled {
+  border-color: #8ca8a3;
+  background: #8ca8a3;
+}
+
+.progress-label {
+  color: #617785;
+}
+
+.workflow-panel {
+  padding: 34px 38px 38px;
+}
+
+.workflow-title-row h2 {
+  color: #173348;
+  font-size: clamp(23px, 2.5vw, 28px);
+  letter-spacing: -0.025em;
+}
+
+.form-intro {
+  color: #5d7481;
+  font-size: 14px;
+}
+
+.explanation-panel {
+  border-left-color: #dce6e8;
+  background: #f4f8f7;
+}
+
+.explanation-label {
+  color: #54726f;
+}
+
+.explanation-icon {
+  border-color: #d7e8e4;
+  color: #16766d;
+}
+
+.explanation-panel h3 {
+  color: #173348;
+  font-size: 18px;
+}
+
+.explanation-copy {
+  color: #5d7481;
+  font-size: 13px;
+}
+
+.help-list {
+  display: grid;
+  gap: 11px;
+  margin: 18px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.help-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  color: #3e5a68;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.help-list li::before {
+  content: "✓";
+  display: grid;
+  width: 19px;
+  height: 19px;
+  flex: none;
+  place-items: center;
+  border-radius: 50%;
+  color: #12645c;
+  background: #e0f0ec;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.privacy-note {
+  color: #667b89;
+  font-size: 11px;
+}
+
+.privacy-note > span {
+  color: #16766d;
+}
+
+.page-footer {
+  justify-content: center;
+  padding-top: 18px;
+  color: #758793;
+  font-size: 11px;
+  text-align: center;
+}
+
+.footer-disclaimer {
+  font-weight: 400;
+}
+
+@media (max-width: 600px) {
+  .topbar {
+    height: 60px;
+    padding: 0 14px;
+  }
+
+  .brand-name {
+    display: inline;
+    font-size: 13px;
+  }
+
+  .topnav {
+    gap: 0;
+  }
+
+  .topnav a {
+    padding: 8px 7px;
+    font-size: 11px;
+  }
+
+  .page-content {
+    width: calc(100% - 24px);
+    padding-top: 28px;
+  }
+
+  .workflow-panel {
+    padding: 26px 18px 30px;
+  }
+
+  .progress-summary {
+    padding: 0 18px 16px;
   }
 }

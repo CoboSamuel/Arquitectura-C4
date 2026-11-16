@@ -1,4 +1,4 @@
-import React, { useReducer, useRef, useState } from "react";
+import React, { useEffect, useReducer, useRef, useState } from "react";
 import {
   consultarContribuyente,
   consultarLicencia,
@@ -15,33 +15,34 @@ import {
   validarPlaca,
   validarRuc,
 } from "./consulta/validacion.js";
+import { describirError } from "./consulta/mensajesError.js";
+import { calcularProgreso } from "./consulta/progreso.js";
 
 const PASOS = [
-  { id: 1, numero: "01", titulo: "Contribuyente", servicio: "SRI" },
-  { id: 2, numero: "02", titulo: "Vehículo", servicio: "SRI" },
-  { id: 3, numero: "03", titulo: "Licencia", servicio: "ANT + Redis" },
+  { id: 1, numero: "01", titulo: "Datos personales" },
+  { id: 2, numero: "02", titulo: "Vehículo" },
+  { id: 3, numero: "03", titulo: "Licencia" },
 ];
 
-const EXPLICACION_POR_PASO = {
+const AYUDA_POR_PASO = {
   1: {
-    etiqueta: "VERIFICACIÓN TRIBUTARIA",
-    texto:
-      "React envía el correo y el RUC al backend Java. El backend consulta al SRI y devuelve solo el resumen permitido de una persona natural.",
-    destino: "Servicio SRI",
+    etiqueta: "Antes de empezar",
+    texto: "Ten a mano estos datos para completar la consulta.",
+    items: ["Correo electrónico", "RUC de persona natural", "Placa del vehículo", "Cédula del titular"],
   },
   2: {
-    etiqueta: "CONSULTA VEHICULAR",
-    texto:
-      "El backend Java consulta la matrícula en el SRI. React recibe un resumen con los datos del vehículo necesarios para este flujo.",
-    destino: "SRI · Matriculación",
+    etiqueta: "Sobre la placa",
+    texto: "Escríbela tal como aparece en la matrícula. Puedes volver y corregirla antes de continuar.",
+    items: ["No incluyas espacios", "Ejemplo: ABC1234"],
   },
   3: {
-    etiqueta: "PUNTOS Y DISPONIBILIDAD",
-    texto:
-      "El backend consulta a la ANT y guarda respuestas válidas en Redis Cloud. Si la ANT no responde, puede mostrar el último resumen válido guardado.",
-    destino: "Portal ANT · Redis Cloud",
+    etiqueta: "Sobre los puntos",
+    texto: "Ingresa la cédula del titular. Si no se puede consultar en este momento, te mostraremos la información disponible de una consulta anterior.",
+    items: ["Se usará junto con la placa ingresada"],
   },
 };
+
+const ORDEN_CAMPOS = ["correo", "ruc", "placa", "cedula"];
 
 function mapearErroresDeCampo(fieldErrors = []) {
   return Object.fromEntries(
@@ -59,6 +60,12 @@ function fechaLegible(value) {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(date);
+}
+
+function unirTexto(...partes) {
+  return partes
+    .filter((parte) => typeof parte === "string" && parte.trim() !== "")
+    .join(" ");
 }
 
 function FormField({ id, label, helper, error, value, onChange, ...inputProps }) {
@@ -109,7 +116,6 @@ function Stepper({ state, onGoToStep }) {
               <span className="step-number" aria-hidden="true">{listo ? "✓" : paso.numero}</span>
               <span className="step-copy">
                 <span className="step-title">{paso.titulo}</span>
-                <span className="step-service">{paso.servicio}</span>
               </span>
             </button>
             {index < PASOS.length - 1 && (
@@ -128,7 +134,7 @@ function SummaryCard({ title, subtitle, children, onEdit, editLabel, disabled })
       <div className="summary-card-heading">
         <span className="summary-check" aria-hidden="true">✓</span>
         <div className="summary-heading-copy">
-          <p className="summary-kicker">PASO COMPLETADO</p>
+            <p className="summary-kicker">DATOS CONFIRMADOS</p>
           <h3>{title}</h3>
           {subtitle && <p className="summary-subtitle">{subtitle}</p>}
         </div>
@@ -153,18 +159,60 @@ function Detail({ label, value }) {
   );
 }
 
+function ProgressBar({ state }) {
+  const progreso = calcularProgreso(state);
+
+  return (
+    <div className="progress-summary">
+      <div
+        className="progress-track"
+        role="progressbar"
+        aria-label="Avance del recorrido"
+        aria-valuemin={0}
+        aria-valuemax={progreso.total}
+        aria-valuenow={progreso.completados}
+        aria-valuetext={progreso.texto}
+      >
+        <span className="progress-fill" style={{ width: `${progreso.porcentaje}%` }} />
+      </div>
+      <p className="progress-label">{progreso.texto}</p>
+    </div>
+  );
+}
+
+function StatusRegion({ cargando, texto }) {
+  // La región existe siempre para que los lectores de pantalla anuncien el cambio.
+  return (
+    <div className="status-region" role="status">
+      {cargando && (
+        <div className="loading-status">
+          <span className="spinner" aria-hidden="true" />
+          <div>
+            <strong>{texto}</strong>
+            <p>Espera un momento mientras buscamos la información.</p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function EstadoPill({ value }) {
+  return <span className="status-pill">{value}</span>;
+}
+
 function ContributorSummary({ contributor, onEdit, disabled }) {
   return (
     <SummaryCard
-      title={contributor.nombre}
-      subtitle={`RUC ${contributor.ruc}`}
+      title={unirTexto(contributor.nombre) || "Titular consultado"}
+      subtitle={contributor.ruc ? `RUC ${contributor.ruc}` : undefined}
       onEdit={onEdit}
       editLabel="Editar RUC"
       disabled={disabled}
     >
       <dl className="detail-grid">
         <Detail label="Tipo" value={contributor.tipoContribuyente} />
-        <Detail label="Estado" value={contributor.estado} />
+        <Detail label="Estado" value={contributor.estado ? <EstadoPill value={contributor.estado} /> : null} />
         <Detail label="Actividad principal" value={contributor.actividadEconomicaPrincipal} />
         <Detail label="Régimen" value={contributor.regimen} />
         <Detail label="Inicio de actividades" value={contributor.fechaInicioActividades} />
@@ -176,12 +224,18 @@ function ContributorSummary({ contributor, onEdit, disabled }) {
 function VehicleSummary({ vehicle, onEdit, disabled }) {
   return (
     <SummaryCard
-      title={`${vehicle.marca} ${vehicle.modelo}`}
-      subtitle={`Placa ${vehicle.placa} · ${vehicle.anioModelo}`}
+      title={unirTexto(vehicle.marca, vehicle.modelo) || "Vehículo consultado"}
+      subtitle={vehicle.anioModelo ? `Año modelo ${vehicle.anioModelo}` : undefined}
       onEdit={onEdit}
       editLabel="Editar placa"
       disabled={disabled}
     >
+      {vehicle.placa && (
+        <p className="plate-chip">
+          <span className="plate-chip-label">Placa</span>
+          <strong>{vehicle.placa}</strong>
+        </p>
+      )}
       <dl className="detail-grid">
         <Detail label="Clase" value={vehicle.claseVehiculo} />
         <Detail label="Color" value={vehicle.color} />
@@ -191,41 +245,60 @@ function VehicleSummary({ vehicle, onEdit, disabled }) {
   );
 }
 
-function ErrorNotice({ error }) {
+function ErrorNotice({ error, onRetry, ref }) {
+  const info = describirError(error);
+
   return (
-    <div className="api-error" role="alert">
+    <div className="api-error" role="group" aria-labelledby="error-titulo" tabIndex={-1} ref={ref}>
       <span className="error-icon" aria-hidden="true">!</span>
-      <div>
-        <strong>No se pudo completar este paso</strong>
-        <p>{error.message}</p>
+      <div className="api-error-body">
+        <strong id="error-titulo">{info.titulo}</strong>
+        <p>{info.mensaje}</p>
+        {info.sugerencia && <p className="api-error-hint">{info.sugerencia}</p>}
+        {info.reintentable && onRetry && (
+          <button className="retry-button" type="button" onClick={onRetry}>
+            Reintentar consulta
+          </button>
+        )}
       </div>
     </div>
   );
 }
 
-function LicenseResult({ result }) {
+function LicenseResult({ result, ref }) {
   const points = new Intl.NumberFormat("es-EC", {
     maximumFractionDigits: 2,
   }).format(result.puntosDisponibles);
   const fromCache = result.origen === "CACHE";
 
   return (
-    <section className={`license-result${result.desactualizado ? " is-stale" : ""}`} aria-live="polite">
+    <section
+      className={`license-result${result.desactualizado ? " is-stale" : ""}`}
+      aria-labelledby="license-result-title"
+      tabIndex={-1}
+      ref={ref}
+    >
       <div className="license-result-topline">
-        <span className="result-overline">RESUMEN DE LICENCIA</span>
+        <h3 className="result-overline" id="license-result-title">PUNTOS DE TU LICENCIA</h3>
         <span className={`origin-badge${fromCache ? " is-cache" : ""}`}>
           <span aria-hidden="true">●</span>
-          {fromCache ? "Redis Cloud · caché" : "Consulta ANT"}
+          {fromCache ? "Última consulta disponible" : "Actualizado ahora"}
         </span>
       </div>
       <div className="points-display">
         <strong>{points}</strong>
         <span>puntos disponibles</span>
       </div>
-      <p className="updated-at">Actualizado: {fechaLegible(result.actualizadoEn)}</p>
+      <dl className="detail-grid result-facts">
+        <Detail label="Fecha de consulta" value={fechaLegible(result.actualizadoEn)} />
+        <Detail
+          label="Estado"
+          value={result.desactualizado ? "Consulta anterior" : "Actualizado ahora"}
+        />
+      </dl>
       {result.desactualizado && (
         <div className="stale-notice" role="status">
-          ANT no respondió. Se muestran los últimos puntos válidos guardados en caché.
+          No fue posible consultar los puntos en este momento. Te mostramos la información disponible de una consulta anterior.
         </div>
       )}
     </section>
@@ -236,6 +309,37 @@ export default function App() {
   const [state, dispatch] = useReducer(reducirConsulta, estadoInicialConsulta);
   const [fieldErrors, setFieldErrors] = useState({});
   const requestInFlight = useRef(false);
+  const headingRef = useRef(null);
+  const errorRef = useRef(null);
+  const resultRef = useRef(null);
+  const pasoPrevio = useRef(state.paso);
+  const enfocarCampoPendiente = useRef(false);
+
+  // Al cambiar de paso, el foco pasa al título para que teclado y lector de pantalla sigan el avance.
+  useEffect(() => {
+    if (pasoPrevio.current !== state.paso) {
+      pasoPrevio.current = state.paso;
+      headingRef.current?.focus();
+    }
+  }, [state.paso]);
+
+  // Si la consulta falla, el foco pasa al aviso de error.
+  useEffect(() => {
+    if (state.error) errorRef.current?.focus();
+  }, [state.error]);
+
+  // Cuando llega el resultado de licencia, el foco pasa al resultado.
+  useEffect(() => {
+    if (state.licencia) resultRef.current?.focus();
+  }, [state.licencia]);
+
+  // Tras un envío con campos inválidos, el foco va al primer campo con error.
+  useEffect(() => {
+    if (!enfocarCampoPendiente.current || state.cargando) return;
+    enfocarCampoPendiente.current = false;
+    const primero = ORDEN_CAMPOS.find((campo) => fieldErrors[campo]);
+    if (primero) document.getElementById(primero)?.focus();
+  }, [fieldErrors, state.cargando]);
 
   function goToStep(paso) {
     dispatch({ type: "paso/volver", paso });
@@ -276,13 +380,14 @@ export default function App() {
       };
       dispatch({ type: "solicitud/fallida", error: safeError });
       setFieldErrors(mapearErroresDeCampo(error?.fieldErrors));
+      enfocarCampoPendiente.current = true;
     } finally {
       requestInFlight.current = false;
     }
   }
 
   function submitContribuyente(event) {
-    event.preventDefault();
+    event?.preventDefault();
     const errors = {
       correo: validarCorreo(state.correo),
       ruc: validarRuc(state.ruc),
@@ -291,7 +396,10 @@ export default function App() {
       Object.entries(errors).filter(([, message]) => message),
     );
     setFieldErrors(foundErrors);
-    if (Object.keys(foundErrors).length > 0) return;
+    if (Object.keys(foundErrors).length > 0) {
+      enfocarCampoPendiente.current = true;
+      return;
+    }
 
     void ejecutarConsulta(
       () =>
@@ -304,10 +412,13 @@ export default function App() {
   }
 
   function submitVehiculo(event) {
-    event.preventDefault();
+    event?.preventDefault();
     const placaError = validarPlaca(state.placa);
     setFieldErrors(placaError ? { placa: placaError } : {});
-    if (placaError) return;
+    if (placaError) {
+      enfocarCampoPendiente.current = true;
+      return;
+    }
 
     const placa = normalizarPlaca(state.placa);
     if (placa !== state.placa) {
@@ -317,10 +428,13 @@ export default function App() {
   }
 
   function submitLicencia(event) {
-    event.preventDefault();
+    event?.preventDefault();
     const cedulaError = validarCedula(state.cedula);
     setFieldErrors(cedulaError ? { cedula: cedulaError } : {});
-    if (cedulaError) return;
+    if (cedulaError) {
+      enfocarCampoPendiente.current = true;
+      return;
+    }
 
     void ejecutarConsulta(
       () =>
@@ -337,48 +451,56 @@ export default function App() {
     setFieldErrors({});
   }
 
-  const explicacion = EXPLICACION_POR_PASO[state.paso];
+  const ayuda = AYUDA_POR_PASO[state.paso];
   const tieneResultados = Boolean(state.contribuyente || state.vehiculo || state.licencia);
 
   return (
     <div className="app-shell">
+      <a className="skip-link" href="#inicio">Saltar al contenido principal</a>
       <header className="topbar">
-        <a className="brand" href="#inicio" aria-label="Sistema SRI ANT, inicio">
-          <span className="brand-mark" aria-hidden="true">S</span>
-          <span className="brand-name">SRI <span>×</span> ANT</span>
+        <a className="brand" href="#inicio" aria-label="Consulta ciudadana, inicio">
+          <span className="brand-mark" aria-hidden="true">EC</span>
+          <span className="brand-name">Consulta ciudadana</span>
         </a>
+        <nav className="topnav" aria-label="Secciones de la página">
+          <a href="#consulta">Iniciar consulta</a>
+          <a href="#ayuda">Ayuda</a>
+        </nav>
         <div className="topbar-note">
           <span className="topbar-dot" aria-hidden="true" />
-          CONSULTA GUIADA
+          RECORRIDO EN 3 PASOS
         </div>
       </header>
 
-      <main className="page-content" id="inicio">
+      <main className="page-content" id="inicio" tabIndex={-1}>
         <section className="page-heading">
           <div>
-            <p className="eyebrow">SERVICIOS CIUDADANOS · ECUADOR</p>
-            <h1>Consulta SRI <span>y</span> ANT</h1>
+            <p className="eyebrow">CONSULTA CIUDADANA</p>
+            <h1>Consulta tus datos</h1>
             <p className="page-intro">
-              Verifica un contribuyente, consulta su vehículo y revisa los puntos de su licencia en un solo recorrido.
+              Revisa la información de tu RUC, tu vehículo y tu licencia paso a paso.
             </p>
-          </div>
-          <div className="heading-stamp" aria-hidden="true">
-            <span>REST</span><span className="stamp-divider" /><span>JSON</span>
+            <ul className="prep-list" aria-label="Datos que necesitará">
+              <li>Correo electrónico y RUC</li>
+              <li>Placa del vehículo</li>
+              <li>Cédula del titular</li>
+            </ul>
           </div>
         </section>
 
-        <section className="workspace-card" aria-label="Flujo de consultas">
+        <section className="workspace-card" id="consulta" aria-label="Consulta paso a paso">
           <Stepper state={state} onGoToStep={goToStep} />
+          <ProgressBar state={state} />
 
           <div className="workspace-grid">
             <section className="workflow-panel" aria-labelledby="step-heading">
               <div className="workflow-title-row">
                 <div>
-                  <p className="eyebrow">PASO {String(state.paso).padStart(2, "0")} DE 03</p>
-                  <h2 id="step-heading">
-                    {state.paso === 1 && "Verifica al contribuyente"}
-                    {state.paso === 2 && "Consulta el vehículo"}
-                    {state.paso === 3 && "Revisa los puntos de licencia"}
+                  <p className="eyebrow">PASO {state.paso} DE 3</p>
+                  <h2 id="step-heading" ref={headingRef} tabIndex={-1}>
+                    {state.paso === 1 && "Tus datos"}
+                    {state.paso === 2 && "Tu vehículo"}
+                    {state.paso === 3 && "Puntos de tu licencia"}
                   </h2>
                 </div>
                 {tieneResultados && (
@@ -405,8 +527,8 @@ export default function App() {
               )}
 
               {state.paso === 1 && (
-                <form className="consultation-form" onSubmit={submitContribuyente} noValidate>
-                  <p className="form-intro">Ingresa el correo y el RUC de una persona natural.</p>
+                <form className="consultation-form" onSubmit={submitContribuyente} aria-busy={state.cargando} noValidate>
+                  <p className="form-intro">Para comenzar, ingresa tu correo electrónico y el RUC del titular.</p>
                   <FormField
                     id="correo"
                     label="Correo electrónico"
@@ -414,7 +536,7 @@ export default function App() {
                     autoComplete="email"
                     placeholder="nombre@ejemplo.com"
                     maxLength={254}
-                    helper="Usaremos este dato para identificar la consulta."
+                    helper="Lo usaremos solo para esta consulta."
                     disabled={state.cargando}
                     value={state.correo}
                     error={fieldErrors.correo}
@@ -428,23 +550,26 @@ export default function App() {
                     autoComplete="off"
                     placeholder="13 dígitos"
                     maxLength={13}
-                    helper="El SRI confirmará que corresponda a una persona natural."
+                    helper="Ingresa los 13 dígitos del RUC de una persona natural."
                     disabled={state.cargando}
                     value={state.ruc}
                     error={fieldErrors.ruc}
                     onChange={(event) => changeField("ruc", event.target.value)}
                   />
-                  {state.error && <ErrorNotice error={state.error} />}
+                  {state.error && (
+                    <ErrorNotice error={state.error} onRetry={() => submitContribuyente()} ref={errorRef} />
+                  )}
+                  <StatusRegion cargando={state.cargando} texto="Buscando tus datos…" />
                   <button className="primary-button" type="submit" disabled={state.cargando}>
-                    {state.cargando ? "Consultando al SRI…" : "Verificar contribuyente"}
-                    {!state.cargando && <span aria-hidden="true">→</span>}
+                    {state.cargando ? "Buscando tus datos…" : "Continuar"}
+                    {state.cargando ? <span className="spinner" aria-hidden="true" /> : <span aria-hidden="true">→</span>}
                   </button>
                 </form>
               )}
 
               {state.paso === 2 && (
-                <form className="consultation-form" onSubmit={submitVehiculo} noValidate>
-                  <p className="form-intro">Ingresa la matrícula para obtener el resumen del vehículo.</p>
+                <form className="consultation-form" onSubmit={submitVehiculo} aria-busy={state.cargando} noValidate>
+                  <p className="form-intro">Escribe la placa del vehículo que deseas consultar.</p>
                   <FormField
                     id="placa"
                     label="Placa del vehículo"
@@ -452,28 +577,33 @@ export default function App() {
                     inputMode="text"
                     autoComplete="off"
                     placeholder="Ej. ABC1234"
+                    autoCapitalize="characters"
+                    spellCheck={false}
                     maxLength={8}
-                    helper="De 5 a 8 letras, números o guiones."
+                    helper="Escríbela tal como aparece en la matrícula."
                     disabled={state.cargando}
                     value={state.placa}
                     error={fieldErrors.placa}
                     onChange={(event) => changeField("placa", event.target.value)}
                   />
-                  {state.error && <ErrorNotice error={state.error} />}
+                  {state.error && (
+                    <ErrorNotice error={state.error} onRetry={() => submitVehiculo()} ref={errorRef} />
+                  )}
+                  <StatusRegion cargando={state.cargando} texto="Buscando el vehículo…" />
                   <button className="primary-button" type="submit" disabled={state.cargando}>
-                    {state.cargando ? "Consultando al SRI…" : "Consultar vehículo"}
-                    {!state.cargando && <span aria-hidden="true">→</span>}
+                    {state.cargando ? "Buscando el vehículo…" : "Continuar"}
+                    {state.cargando ? <span className="spinner" aria-hidden="true" /> : <span aria-hidden="true">→</span>}
                   </button>
                 </form>
               )}
 
               {state.paso === 3 && (
                 <>
-                  <form className="consultation-form license-form" onSubmit={submitLicencia} noValidate>
-                    <p className="form-intro">La consulta de puntos requiere la cédula del titular y la placa registrada.</p>
+                  <form className="consultation-form license-form" onSubmit={submitLicencia} aria-busy={state.cargando} noValidate>
+                    <p className="form-intro">Ingresa la cédula del titular para consultar los puntos de su licencia.</p>
                     <div className="plate-reference">
                       <span className="plate-icon" aria-hidden="true">EC</span>
-                      <span><small>PLACA ASOCIADA</small><strong>{state.placa}</strong></span>
+                      <span><small>PLACA DEL VEHÍCULO</small><strong>{state.placa}</strong></span>
                       <span className="reference-check" aria-label="Vehículo consultado">✓</span>
                     </div>
                     <FormField
@@ -484,49 +614,49 @@ export default function App() {
                       autoComplete="off"
                       placeholder="10 dígitos"
                       maxLength={10}
-                      helper="La cédula se envía al backend junto con la placa."
+                      helper="Escribe los 10 dígitos de la cédula del titular."
                       disabled={state.cargando}
                       value={state.cedula}
                       error={fieldErrors.cedula}
                       onChange={(event) => changeField("cedula", event.target.value)}
                     />
-                    {state.error && <ErrorNotice error={state.error} />}
+                    {state.error && (
+                      <ErrorNotice error={state.error} onRetry={() => submitLicencia()} ref={errorRef} />
+                    )}
+                    <StatusRegion cargando={state.cargando} texto="Buscando los puntos…" />
                     <button className="primary-button" type="submit" disabled={state.cargando}>
-                      {state.cargando ? "Consultando ANT…" : "Consultar puntos"}
-                      {!state.cargando && <span aria-hidden="true">→</span>}
+                      {state.cargando ? "Buscando los puntos…" : "Consultar puntos"}
+                      {state.cargando ? <span className="spinner" aria-hidden="true" /> : <span aria-hidden="true">→</span>}
                     </button>
                   </form>
-                  {state.licencia && <LicenseResult result={state.licencia} />}
+                  {state.licencia && <LicenseResult result={state.licencia} ref={resultRef} />}
                 </>
               )}
             </section>
 
-            <aside className="explanation-panel" aria-live="polite">
+            <aside className="explanation-panel" id="ayuda" aria-label="Información útil">
               <div className="explanation-label">
-                <span className="explanation-icon" aria-hidden="true">↗</span>
-                <span>ASÍ FUNCIONA</span>
+                <span className="explanation-icon" aria-hidden="true">i</span>
+                <span>INFORMACIÓN ÚTIL</span>
               </div>
-              <h3>{explicacion.etiqueta}</h3>
-              <p className="explanation-copy">{explicacion.texto}</p>
-              <div className="request-route" aria-label={`Ruta de consulta: React, backend Java y ${explicacion.destino}`}>
-                <div className="route-node"><span className="route-node-icon">R</span><span>React</span></div>
-                <span className="route-arrow" aria-hidden="true">→</span>
-                <div className="route-node"><span className="route-node-icon backend-icon">J</span><span>Backend Java</span></div>
-                <span className="route-arrow" aria-hidden="true">→</span>
-                <div className="route-destination">{explicacion.destino}</div>
-              </div>
+              <h3>{ayuda.etiqueta}</h3>
+              <p className="explanation-copy">{ayuda.texto}</p>
+              <ul className="help-list">
+                {ayuda.items.map((item) => <li key={item}>{item}</li>)}
+              </ul>
               <div className="explanation-divider" />
-              <p className="privacy-note">
+              <p className="privacy-note" id="privacidad">
                 <span aria-hidden="true">◇</span>
-                El navegador conserva el progreso durante esta sesión. La caché guarda únicamente el resumen de puntos permitido.
+                Tus datos no se guardan en esta página. Este es un proyecto académico y no un portal oficial.
               </p>
             </aside>
           </div>
         </section>
 
         <footer className="page-footer">
-          <span>Arquitectura C4 · Integraciones externas</span>
-          <span>REST <i /> Spring Boot <i /> React</span>
+          <span className="footer-disclaimer">
+            Proyecto académico de demostración · No es un portal oficial.
+          </span>
         </footer>
       </main>
     </div>

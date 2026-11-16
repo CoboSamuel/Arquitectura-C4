@@ -15,7 +15,13 @@ test("App renderiza el primer paso del flujo React", async (context) => {
   const { default: App } = await vite.ssrLoadModule("/src/App.jsx");
   const markup = renderToString(React.createElement(App));
 
-  assert.match(markup, /Consulta SRI/);
-  assert.match(markup, /Verifica al contribuyente/);
+  assert.match(markup, /Consulta ciudadana/);
+  assert.match(markup, /Tus datos/);
   assert.match(markup, /Correo electrónico/);
+  assert.match(markup, /Saltar al contenido principal/);
+  assert.match(markup, /role="progressbar"/);
+  assert.match(markup, /aria-valuenow="0"/);
+  assert.match(markup, /Paso 1 de 3/);
+  assert.doesNotMatch(markup, /REST|JSON|React|Backend Java|Arquitectura C4|Redis Cloud|Verificación tributaria/i);
+  assert.doesNotMatch(markup, /Reintentar consulta/);
 });
