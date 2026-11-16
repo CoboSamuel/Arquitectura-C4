@@ -1,6 +1,7 @@
 package ec.edu.udla.arquitecturac4.consulta;
 
 import ec.edu.udla.arquitecturac4.consulta.dto.ConsultaContribuyenteRequest;
+import ec.edu.udla.arquitecturac4.consulta.dto.ConsultaContribuyenteResponse;
 import ec.edu.udla.arquitecturac4.consulta.dto.ConsultaLicenciaRequest;
 import ec.edu.udla.arquitecturac4.consulta.dto.ConsultaVehiculoRequest;
 import jakarta.validation.Valid;
@@ -21,8 +22,9 @@ public class ConsultaController {
     }
 
     @PostMapping(path = "/contribuyentes", consumes = MediaType.APPLICATION_JSON_VALUE)
-    public void consultarContribuyente(@Valid @RequestBody ConsultaContribuyenteRequest request) {
-        consultaService.consultarContribuyente(request);
+    public ConsultaContribuyenteResponse consultarContribuyente(
+            @Valid @RequestBody ConsultaContribuyenteRequest request) {
+        return consultaService.consultarContribuyente(request);
     }
 
     @PostMapping(path = "/vehiculos", consumes = MediaType.APPLICATION_JSON_VALUE)

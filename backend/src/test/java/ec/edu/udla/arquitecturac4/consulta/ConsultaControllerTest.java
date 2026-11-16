@@ -1,15 +1,24 @@
 package ec.edu.udla.arquitecturac4.consulta;
 
 import ec.edu.udla.arquitecturac4.api.ApiExceptionHandler;
+import ec.edu.udla.arquitecturac4.consulta.sri.SRIContribuyenteClient;
+import ec.edu.udla.arquitecturac4.consulta.sri.dto.SriContribuyenteResponse;
+import ec.edu.udla.arquitecturac4.consulta.sri.dto.SriFechasContribuyente;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.not;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -22,6 +31,9 @@ class ConsultaControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
+
+    @MockitoBean
+    private SRIContribuyenteClient sriContribuyenteClient;
 
     @Test
     void invalidContributorFieldsReturn400WithoutEchoingSubmittedValues() throws Exception {
@@ -88,6 +100,17 @@ class ConsultaControllerTest {
     }
 
     @Test
+    void unknownContributorRequestPropertiesAreRejectedByTheContract() throws Exception {
+        mockMvc.perform(post("/api/v1/consultas/contribuyentes")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"correo":"persona@example.com","ruc":"9999999999999","extra":"valor"}
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_JSON"));
+    }
+
+    @Test
     void unsupportedContentTypeReturns415InsteadOf500() throws Exception {
         mockMvc.perform(post("/api/v1/consultas/vehiculos")
                         .contentType(MediaType.TEXT_PLAIN)
@@ -116,14 +139,100 @@ class ConsultaControllerTest {
     }
 
     @Test
-    void validContributorRequestReturnsIntegrationPending() throws Exception {
+    void naturalPersonRequestReturnsContributorSummary() throws Exception {
+        when(sriContribuyenteClient.existe("9999999999999")).thenReturn(true);
+        when(sriContribuyenteClient.obtener("9999999999999")).thenReturn(List.of(
+                new SriContribuyenteResponse(
+                        "9999999999999",
+                        "PERSONA DE PRUEBA",
+                        "ACTIVO",
+                        "ACTIVIDAD DE PRUEBA",
+                        "PERSONA NATURAL",
+                        "GENERAL",
+                        new SriFechasContribuyente("2020-01-02 00:00:00.0"))));
+
         mockMvc.perform(post("/api/v1/consultas/contribuyentes")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"correo":"persona@example.com","ruc":"0999999999001"}
+                                {"correo":"persona@example.com","ruc":"9999999999999"}
                                 """))
-                .andExpect(status().isNotImplemented())
-                .andExpect(jsonPath("$.code").value("INTEGRACION_PENDIENTE"));
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.ruc").value("9999999999999"))
+                .andExpect(jsonPath("$.nombre").value("PERSONA DE PRUEBA"))
+                .andExpect(jsonPath("$.tipoContribuyente").value("PERSONA NATURAL"))
+                .andExpect(jsonPath("$.estado").value("ACTIVO"))
+                .andExpect(jsonPath("$.actividadEconomicaPrincipal").value("ACTIVIDAD DE PRUEBA"))
+                .andExpect(jsonPath("$.regimen").value("GENERAL"))
+                .andExpect(jsonPath("$.fechaInicioActividades").value("2020-01-02 00:00:00.0"))
+                .andExpect(jsonPath("$.representantesLegales").doesNotExist());
+    }
+
+    @Test
+    void unknownContributorReturns404WithoutEchoingRequestValues() throws Exception {
+        when(sriContribuyenteClient.existe("9999999999999")).thenReturn(false);
+
+        mockMvc.perform(post("/api/v1/consultas/contribuyentes")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"correo":"persona@example.com","ruc":"9999999999999"}
+                                """))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("CONTRIBUYENTE_NO_ENCONTRADO"))
+                .andExpect(content().string(not(containsString("9999999999999"))))
+                .andExpect(content().string(not(containsString("persona@example.com"))));
+
+        verify(sriContribuyenteClient, never()).obtener(anyString());
+    }
+
+    @Test
+    void nonNaturalContributorReturns422() throws Exception {
+        when(sriContribuyenteClient.existe("9999999999999")).thenReturn(true);
+        when(sriContribuyenteClient.obtener("9999999999999")).thenReturn(List.of(
+                new SriContribuyenteResponse("9999999999999", "ENTIDAD DE PRUEBA", "ACTIVO",
+                        "ACTIVIDAD DE PRUEBA", "SOCIEDAD", "GENERAL", null)));
+
+        mockMvc.perform(post("/api/v1/consultas/contribuyentes")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"correo":"persona@example.com","ruc":"9999999999999"}
+                                """))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.code").value("NO_ES_PERSONA_NATURAL"))
+                .andExpect(content().string(not(containsString("ENTIDAD DE PRUEBA"))))
+                .andExpect(content().string(not(containsString("9999999999999"))))
+                .andExpect(content().string(not(containsString("persona@example.com"))));
+    }
+
+    @Test
+    void unavailableSriReturns503WithoutEchoingRequestValues() throws Exception {
+        when(sriContribuyenteClient.existe("9999999999999"))
+                .thenThrow(new SriNoDisponibleException());
+
+        mockMvc.perform(post("/api/v1/consultas/contribuyentes")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"correo":"persona@example.com","ruc":"9999999999999"}
+                                """))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.code").value("SRI_NO_DISPONIBLE"))
+                .andExpect(content().string(not(containsString("9999999999999"))))
+                .andExpect(content().string(not(containsString("persona@example.com"))));
+    }
+
+    @Test
+    void invalidSriResponseReturns502WithoutEchoingRequestValues() throws Exception {
+        when(sriContribuyenteClient.existe("9999999999999"))
+                .thenThrow(new SriRespuestaInvalidaException());
+
+        mockMvc.perform(post("/api/v1/consultas/contribuyentes")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"correo":"persona@example.com","ruc":"9999999999999"}
+                                """))
+                .andExpect(status().isBadGateway())
+                .andExpect(jsonPath("$.code").value("SRI_RESPUESTA_INVALIDA"))
+                .andExpect(content().string(not(containsString("9999999999999"))))
+                .andExpect(content().string(not(containsString("persona@example.com"))));
     }
 
     @Test

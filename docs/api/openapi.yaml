@@ -3,8 +3,8 @@ info:
   title: Sistema Web SRI ANT API
   version: 1.0.0
   description: >-
-    Contrato versionado para consultas. En Etapa 2 las solicitudes con formato
-    válido responden 501 hasta que cada integración externa se implemente.
+    Contrato versionado para consultas. La consulta de contribuyentes integra
+    el SRI; las consultas de vehículos y licencias siguen pendientes.
 servers:
   - url: http://localhost:8080
 paths:
@@ -19,16 +19,28 @@ paths:
             schema:
               $ref: '#/components/schemas/ConsultaContribuyenteRequest'
       responses:
+        '200':
+          description: Contribuyente verificado como persona natural.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConsultaContribuyenteResponse'
         '400':
           $ref: '#/components/responses/ValidationError'
+        '404':
+          $ref: '#/components/responses/ContributorNotFound'
+        '422':
+          $ref: '#/components/responses/NotNaturalPerson'
+        '502':
+          $ref: '#/components/responses/InvalidSriResponse'
+        '503':
+          $ref: '#/components/responses/SriUnavailable'
         '405':
           $ref: '#/components/responses/MethodNotAllowed'
         '406':
           $ref: '#/components/responses/NotAcceptable'
         '415':
           $ref: '#/components/responses/UnsupportedMediaType'
-        '501':
-          $ref: '#/components/responses/IntegrationPending'
         '500':
           $ref: '#/components/responses/InternalError'
   /api/v1/consultas/vehiculos:
@@ -92,6 +104,36 @@ components:
           type: string
           pattern: '^[0-9]{13}$'
           description: Trece dígitos; el SRI confirma existencia y tipo de persona.
+    ConsultaContribuyenteResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - ruc
+        - nombre
+        - tipoContribuyente
+        - estado
+        - actividadEconomicaPrincipal
+        - regimen
+        - fechaInicioActividades
+      properties:
+        ruc:
+          type: string
+          pattern: '^[0-9]{13}$'
+        nombre:
+          type: string
+        tipoContribuyente:
+          type: string
+          const: PERSONA NATURAL
+        estado:
+          type: string
+        actividadEconomicaPrincipal:
+          type: string
+        regimen:
+          type: string
+        fechaInicioActividades:
+          anyOf:
+            - type: string
+            - type: 'null'
     ConsultaVehiculoRequest:
       type: object
       additionalProperties: false
@@ -124,8 +166,9 @@ components:
           example: VALIDATION_ERROR
           description: >-
             Código estable: VALIDATION_ERROR, INVALID_JSON, INTEGRACION_PENDIENTE,
-            INTERNAL_ERROR, METHOD_NOT_ALLOWED, UNSUPPORTED_MEDIA_TYPE u otro
-            error HTTP de cliente.
+            INTERNAL_ERROR, METHOD_NOT_ALLOWED, UNSUPPORTED_MEDIA_TYPE,
+            CONTRIBUYENTE_NO_ENCONTRADO, NO_ES_PERSONA_NATURAL,
+            SRI_NO_DISPONIBLE o SRI_RESPUESTA_INVALIDA.
         message:
           type: string
         fieldErrors:
@@ -183,6 +226,30 @@ components:
             $ref: '#/components/schemas/ApiErrorResponse'
     IntegrationPending:
       description: Solicitud válida, pero la integración externa aún no está implementada.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiErrorResponse'
+    ContributorNotFound:
+      description: El SRI no encontró el RUC o no devolvió un detalle.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiErrorResponse'
+    NotNaturalPerson:
+      description: El RUC corresponde a un contribuyente que no es persona natural.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiErrorResponse'
+    InvalidSriResponse:
+      description: El SRI devolvió una respuesta inválida o inesperada.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiErrorResponse'
+    SriUnavailable:
+      description: El SRI no respondió o limitó temporalmente la consulta.
       content:
         application/json:
           schema:
