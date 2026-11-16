@@ -1,0 +1,195 @@
+openapi: 3.1.0
+info:
+  title: Sistema Web SRI ANT API
+  version: 1.0.0
+  description: >-
+    Contrato versionado para consultas. En Etapa 2 las solicitudes con formato
+    válido responden 501 hasta que cada integración externa se implemente.
+servers:
+  - url: http://localhost:8080
+paths:
+  /api/v1/consultas/contribuyentes:
+    post:
+      operationId: consultarContribuyente
+      summary: Consultar un contribuyente por RUC
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConsultaContribuyenteRequest'
+      responses:
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '406':
+          $ref: '#/components/responses/NotAcceptable'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '501':
+          $ref: '#/components/responses/IntegrationPending'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /api/v1/consultas/vehiculos:
+    post:
+      operationId: consultarVehiculo
+      summary: Consultar un vehículo por placa
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConsultaVehiculoRequest'
+      responses:
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '406':
+          $ref: '#/components/responses/NotAcceptable'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '501':
+          $ref: '#/components/responses/IntegrationPending'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /api/v1/consultas/licencias:
+    post:
+      operationId: consultarLicencia
+      summary: Consultar puntos de licencia por cédula y placa
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConsultaLicenciaRequest'
+      responses:
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '406':
+          $ref: '#/components/responses/NotAcceptable'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '501':
+          $ref: '#/components/responses/IntegrationPending'
+        '500':
+          $ref: '#/components/responses/InternalError'
+components:
+  schemas:
+    ConsultaContribuyenteRequest:
+      type: object
+      additionalProperties: false
+      required: [correo, ruc]
+      properties:
+        correo:
+          type: string
+          format: email
+          maxLength: 254
+        ruc:
+          type: string
+          pattern: '^[0-9]{13}$'
+          description: Trece dígitos; el SRI confirma existencia y tipo de persona.
+    ConsultaVehiculoRequest:
+      type: object
+      additionalProperties: false
+      required: [placa]
+      properties:
+        placa:
+          type: string
+          pattern: '^[A-Za-z0-9-]{5,8}$'
+    ConsultaLicenciaRequest:
+      type: object
+      additionalProperties: false
+      required: [cedula, placa]
+      properties:
+        cedula:
+          type: string
+          pattern: '^[0-9]{10}$'
+          description: Diez dígitos; este patrón verifica formato, no identidad.
+        placa:
+          type: string
+          pattern: '^[A-Za-z0-9-]{5,8}$'
+    ApiErrorResponse:
+      type: object
+      required: [status, code, message, fieldErrors]
+      properties:
+        status:
+          type: integer
+          example: 400
+        code:
+          type: string
+          example: VALIDATION_ERROR
+          description: >-
+            Código estable: VALIDATION_ERROR, INVALID_JSON, INTEGRACION_PENDIENTE,
+            INTERNAL_ERROR, METHOD_NOT_ALLOWED, UNSUPPORTED_MEDIA_TYPE u otro
+            error HTTP de cliente.
+        message:
+          type: string
+        fieldErrors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ApiFieldError'
+    ApiFieldError:
+      type: object
+      required: [field, message]
+      properties:
+        field:
+          type: string
+          example: ruc
+        message:
+          type: string
+  responses:
+    ValidationError:
+      description: Campo inválido, JSON malformado o propiedad desconocida.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiErrorResponse'
+          examples:
+            invalidFields:
+              summary: Falló la validación de campos
+              value:
+                status: 400
+                code: VALIDATION_ERROR
+                message: La solicitud contiene campos inválidos.
+                fieldErrors:
+                  - field: ruc
+                    message: El RUC debe contener exactamente 13 dígitos.
+            invalidJson:
+              summary: JSON malformado o incompatible
+              value:
+                status: 400
+                code: INVALID_JSON
+                message: El cuerpo debe ser JSON válido y compatible con la solicitud.
+                fieldErrors: []
+    MethodNotAllowed:
+      description: El método HTTP no está permitido para esta ruta.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiErrorResponse'
+    NotAcceptable:
+      description: >-
+        La cabecera Accept no admite la representación JSON ofrecida por el API;
+        no se devuelve cuerpo porque no existe una representación aceptable.
+    UnsupportedMediaType:
+      description: El cuerpo debe usar un tipo de contenido admitido, como application/json.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiErrorResponse'
+    IntegrationPending:
+      description: Solicitud válida, pero la integración externa aún no está implementada.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiErrorResponse'
+    InternalError:
+      description: Error interno con mensaje genérico y sin detalles de la excepción.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiErrorResponse'
