@@ -4,6 +4,7 @@ import ec.edu.udla.arquitecturac4.consulta.dto.ConsultaContribuyenteRequest;
 import ec.edu.udla.arquitecturac4.consulta.dto.ConsultaContribuyenteResponse;
 import ec.edu.udla.arquitecturac4.consulta.dto.ConsultaLicenciaRequest;
 import ec.edu.udla.arquitecturac4.consulta.dto.ConsultaVehiculoRequest;
+import ec.edu.udla.arquitecturac4.consulta.dto.ConsultaVehiculoResponse;
 import jakarta.validation.Valid;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -28,8 +29,8 @@ public class ConsultaController {
     }
 
     @PostMapping(path = "/vehiculos", consumes = MediaType.APPLICATION_JSON_VALUE)
-    public void consultarVehiculo(@Valid @RequestBody ConsultaVehiculoRequest request) {
-        consultaService.consultarVehiculo(request);
+    public ConsultaVehiculoResponse consultarVehiculo(@Valid @RequestBody ConsultaVehiculoRequest request) {
+        return consultaService.consultarVehiculo(request);
     }
 
     @PostMapping(path = "/licencias", consumes = MediaType.APPLICATION_JSON_VALUE)

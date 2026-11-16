@@ -2,9 +2,12 @@ package ec.edu.udla.arquitecturac4.consulta;
 
 import ec.edu.udla.arquitecturac4.api.ApiExceptionHandler;
 import ec.edu.udla.arquitecturac4.consulta.sri.SRIContribuyenteClient;
+import ec.edu.udla.arquitecturac4.consulta.sri.SRIVehiculoClient;
 import ec.edu.udla.arquitecturac4.consulta.sri.dto.SriContribuyenteResponse;
 import ec.edu.udla.arquitecturac4.consulta.sri.dto.SriFechasContribuyente;
+import ec.edu.udla.arquitecturac4.consulta.sri.dto.SriVehiculoData;
 import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -34,6 +37,9 @@ class ConsultaControllerTest {
 
     @MockitoBean
     private SRIContribuyenteClient sriContribuyenteClient;
+
+    @MockitoBean
+    private SRIVehiculoClient sriVehiculoClient;
 
     @Test
     void invalidContributorFieldsReturn400WithoutEchoingSubmittedValues() throws Exception {
@@ -236,14 +242,67 @@ class ConsultaControllerTest {
     }
 
     @Test
-    void validVehicleRequestReturnsIntegrationPending() throws Exception {
+    void validVehicleRequestReturnsAllowlistedSummary() throws Exception {
+        when(sriVehiculoClient.buscar("ABC1234")).thenReturn(Optional.of(new SriVehiculoData(
+                "ABC1234", "MARCA DE PRUEBA", "MODELO DE PRUEBA", "2022",
+                "AUTOMOVIL", "AZUL", "1600")));
+
         mockMvc.perform(post("/api/v1/consultas/vehiculos")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"placa":"ABC1234"}
                                 """))
-                .andExpect(status().isNotImplemented())
-                .andExpect(jsonPath("$.code").value("INTEGRACION_PENDIENTE"));
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.placa").value("ABC1234"))
+                .andExpect(jsonPath("$.marca").value("MARCA DE PRUEBA"))
+                .andExpect(jsonPath("$.modelo").value("MODELO DE PRUEBA"))
+                .andExpect(jsonPath("$.anioModelo").value("2022"))
+                .andExpect(jsonPath("$.claseVehiculo").value("AUTOMOVIL"))
+                .andExpect(jsonPath("$.color").value("AZUL"))
+                .andExpect(jsonPath("$.cilindraje").value("1600"))
+                .andExpect(jsonPath("$.propietario").doesNotExist());
+    }
+
+    @Test
+    void unknownVehicleReturns404WithoutEchoingSubmittedPlate() throws Exception {
+        when(sriVehiculoClient.buscar("ABC1234")).thenReturn(Optional.empty());
+
+        mockMvc.perform(post("/api/v1/consultas/vehiculos")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"placa":"ABC1234"}
+                                """))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("VEHICULO_NO_ENCONTRADO"))
+                .andExpect(content().string(not(containsString("ABC1234"))));
+    }
+
+    @Test
+    void unavailableVehicleServiceReturns503WithoutEchoingPlate() throws Exception {
+        when(sriVehiculoClient.buscar("ABC1234")).thenThrow(new SriNoDisponibleException());
+
+        mockMvc.perform(post("/api/v1/consultas/vehiculos")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"placa":"ABC1234"}
+                                """))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.code").value("SRI_NO_DISPONIBLE"))
+                .andExpect(content().string(not(containsString("ABC1234"))));
+    }
+
+    @Test
+    void invalidVehicleResponseReturns502WithoutEchoingPlate() throws Exception {
+        when(sriVehiculoClient.buscar("ABC1234")).thenThrow(new SriRespuestaInvalidaException());
+
+        mockMvc.perform(post("/api/v1/consultas/vehiculos")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"placa":"ABC1234"}
+                                """))
+                .andExpect(status().isBadGateway())
+                .andExpect(jsonPath("$.code").value("SRI_RESPUESTA_INVALIDA"))
+                .andExpect(content().string(not(containsString("ABC1234"))));
     }
 
     @Test

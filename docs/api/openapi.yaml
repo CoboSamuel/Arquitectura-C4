@@ -3,8 +3,8 @@ info:
   title: Sistema Web SRI ANT API
   version: 1.0.0
   description: >-
-    Contrato versionado para consultas. La consulta de contribuyentes integra
-    el SRI; las consultas de vehículos y licencias siguen pendientes.
+    Contrato versionado para consultas. Las consultas de contribuyentes y
+    vehículos integran el SRI; la consulta de licencias sigue pendiente.
 servers:
   - url: http://localhost:8080
 paths:
@@ -54,16 +54,26 @@ paths:
             schema:
               $ref: '#/components/schemas/ConsultaVehiculoRequest'
       responses:
+        '200':
+          description: Resumen vehicular con campos permitidos del registro consultado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConsultaVehiculoResponse'
         '400':
           $ref: '#/components/responses/ValidationError'
+        '404':
+          $ref: '#/components/responses/VehicleNotFound'
+        '502':
+          $ref: '#/components/responses/InvalidSriResponse'
+        '503':
+          $ref: '#/components/responses/SriUnavailable'
         '405':
           $ref: '#/components/responses/MethodNotAllowed'
         '406':
           $ref: '#/components/responses/NotAcceptable'
         '415':
           $ref: '#/components/responses/UnsupportedMediaType'
-        '501':
-          $ref: '#/components/responses/IntegrationPending'
         '500':
           $ref: '#/components/responses/InternalError'
   /api/v1/consultas/licencias:
@@ -142,6 +152,33 @@ components:
         placa:
           type: string
           pattern: '^[A-Za-z0-9-]{5,8}$'
+    ConsultaVehiculoResponse:
+      type: object
+      additionalProperties: false
+      description: >-
+        Resumen local basado en una fixture positiva sintética; no representa
+        una respuesta positiva del SRI verificada en vivo.
+      required: [placa, marca, modelo, anioModelo, claseVehiculo]
+      properties:
+        placa:
+          type: string
+          pattern: '^[A-Za-z0-9-]{5,8}$'
+        marca:
+          type: string
+        modelo:
+          type: string
+        anioModelo:
+          type: string
+        claseVehiculo:
+          type: string
+        color:
+          anyOf:
+            - type: string
+            - type: 'null'
+        cilindraje:
+          anyOf:
+            - type: string
+            - type: 'null'
     ConsultaLicenciaRequest:
       type: object
       additionalProperties: false
@@ -168,7 +205,7 @@ components:
             Código estable: VALIDATION_ERROR, INVALID_JSON, INTEGRACION_PENDIENTE,
             INTERNAL_ERROR, METHOD_NOT_ALLOWED, UNSUPPORTED_MEDIA_TYPE,
             CONTRIBUYENTE_NO_ENCONTRADO, NO_ES_PERSONA_NATURAL,
-            SRI_NO_DISPONIBLE o SRI_RESPUESTA_INVALIDA.
+            VEHICULO_NO_ENCONTRADO, SRI_NO_DISPONIBLE o SRI_RESPUESTA_INVALIDA.
         message:
           type: string
         fieldErrors:
@@ -232,6 +269,12 @@ components:
             $ref: '#/components/schemas/ApiErrorResponse'
     ContributorNotFound:
       description: El SRI no encontró el RUC o no devolvió un detalle.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiErrorResponse'
+    VehicleNotFound:
+      description: El SRI no devolvió un vehículo para la placa consultada.
       content:
         application/json:
           schema:

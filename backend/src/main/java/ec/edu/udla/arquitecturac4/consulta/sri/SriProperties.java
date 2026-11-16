@@ -9,6 +9,7 @@ public record SriProperties(
         String baseUrl,
         String existsPath,
         String detailsPath,
+        String vehiclePath,
         Duration connectTimeout,
         Duration readTimeout) {
 
@@ -16,6 +17,7 @@ public record SriProperties(
         Objects.requireNonNull(baseUrl, "baseUrl es obligatorio");
         validatePath(existsPath, "existsPath");
         validatePath(detailsPath, "detailsPath");
+        validatePath(vehiclePath, "vehiclePath");
         validateTimeout(connectTimeout, "connectTimeout");
         validateTimeout(readTimeout, "readTimeout");
     }

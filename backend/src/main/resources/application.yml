@@ -13,5 +13,6 @@ integrations:
     base-url: ${SRI_BASE_URL:https://srienlinea.sri.gob.ec}
     exists-path: ${SRI_EXISTS_PATH:/sri-catastro-sujeto-servicio-internet/rest/ConsolidadoContribuyente/existePorNumeroRuc}
     details-path: ${SRI_DETAILS_PATH:/sri-catastro-sujeto-servicio-internet/rest/ConsolidadoContribuyente/obtenerPorNumerosRuc}
+    vehicle-path: ${SRI_VEHICLE_PATH:/sri-matriculacion-vehicular-recaudacion-servicio-internet/rest/BaseVehiculo/obtenerPorNumeroPlacaOPorNumeroCampvOPorNumeroCpn}
     connect-timeout: ${SRI_CONNECT_TIMEOUT:3s}
     read-timeout: ${SRI_READ_TIMEOUT:8s}

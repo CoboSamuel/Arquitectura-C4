@@ -2,10 +2,15 @@ package ec.edu.udla.arquitecturac4.consulta;
 
 import ec.edu.udla.arquitecturac4.consulta.dto.ConsultaContribuyenteRequest;
 import ec.edu.udla.arquitecturac4.consulta.dto.ConsultaContribuyenteResponse;
+import ec.edu.udla.arquitecturac4.consulta.dto.ConsultaVehiculoRequest;
+import ec.edu.udla.arquitecturac4.consulta.dto.ConsultaVehiculoResponse;
 import ec.edu.udla.arquitecturac4.consulta.sri.SRIContribuyenteClient;
+import ec.edu.udla.arquitecturac4.consulta.sri.SRIVehiculoClient;
 import ec.edu.udla.arquitecturac4.consulta.sri.dto.SriContribuyenteResponse;
 import ec.edu.udla.arquitecturac4.consulta.sri.dto.SriFechasContribuyente;
+import ec.edu.udla.arquitecturac4.consulta.sri.dto.SriVehiculoData;
 import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -26,6 +31,9 @@ class ConsultaServiceTest {
 
     @Mock
     private SRIContribuyenteClient sriContribuyenteClient;
+
+    @Mock
+    private SRIVehiculoClient sriVehiculoClient;
 
     @InjectMocks
     private ConsultaService consultaService;
@@ -96,6 +104,41 @@ class ConsultaServiceTest {
 
         assertThrows(NoEsPersonaNaturalException.class,
                 () -> consultaService.consultarContribuyente(request()));
+    }
+
+    @Test
+    void vehicleNotFoundIsMappedToNotFoundException() {
+        when(sriVehiculoClient.buscar("ABC1234")).thenReturn(Optional.empty());
+
+        assertThrows(VehiculoNoEncontradoException.class,
+                () -> consultaService.consultarVehiculo(new ConsultaVehiculoRequest("ABC1234")));
+    }
+
+    @Test
+    void syntheticVehicleDataMapsToLocalResponse() {
+        when(sriVehiculoClient.buscar("ABC1234")).thenReturn(Optional.of(new SriVehiculoData(
+                "ABC1234", "MARCA DE PRUEBA", "MODELO DE PRUEBA", "2022",
+                "AUTOMOVIL", "AZUL", "1600")));
+
+        ConsultaVehiculoResponse result = consultaService.consultarVehiculo(
+                new ConsultaVehiculoRequest("ABC1234"));
+
+        assertEquals("ABC1234", result.placa());
+        assertEquals("MARCA DE PRUEBA", result.marca());
+        assertEquals("MODELO DE PRUEBA", result.modelo());
+        assertEquals("2022", result.anioModelo());
+        assertEquals("AUTOMOVIL", result.claseVehiculo());
+        assertEquals("AZUL", result.color());
+        assertEquals("1600", result.cilindraje());
+    }
+
+    @Test
+    void incompleteSyntheticVehicleDataIsRejected() {
+        when(sriVehiculoClient.buscar("ABC1234")).thenReturn(Optional.of(new SriVehiculoData(
+                "ABC1234", "", "MODELO DE PRUEBA", "2022", "AUTOMOVIL", null, null)));
+
+        assertThrows(SriRespuestaInvalidaException.class,
+                () -> consultaService.consultarVehiculo(new ConsultaVehiculoRequest("ABC1234")));
     }
 
     private ConsultaContribuyenteRequest request() {

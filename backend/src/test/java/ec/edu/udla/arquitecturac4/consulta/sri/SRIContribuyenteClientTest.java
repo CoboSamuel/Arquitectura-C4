@@ -155,7 +155,7 @@ class SRIContribuyenteClientTest {
 
     @Test
     void configuredEndpointPathsAreUsed() {
-        SriProperties custom = new SriProperties(BASE_URL, "/custom/exists", "/custom/details",
+        SriProperties custom = new SriProperties(BASE_URL, "/custom/exists", "/custom/details", "/custom/vehicle",
                 Duration.ofSeconds(3), Duration.ofSeconds(8));
         RestClient.Builder builder = RestClient.builder().baseUrl(BASE_URL);
         MockRestServiceServer customServer = MockRestServiceServer.bindTo(builder).build();
@@ -194,6 +194,8 @@ class SRIContribuyenteClientTest {
         return new SriProperties(BASE_URL,
                 "/sri-catastro-sujeto-servicio-internet/rest/ConsolidadoContribuyente/existePorNumeroRuc",
                 "/sri-catastro-sujeto-servicio-internet/rest/ConsolidadoContribuyente/obtenerPorNumerosRuc",
+                "/sri-matriculacion-vehicular-recaudacion-servicio-internet/rest/BaseVehiculo/"
+                        + "obtenerPorNumeroPlacaOPorNumeroCampvOPorNumeroCpn",
                 Duration.ofSeconds(3), Duration.ofSeconds(8));
     }
 

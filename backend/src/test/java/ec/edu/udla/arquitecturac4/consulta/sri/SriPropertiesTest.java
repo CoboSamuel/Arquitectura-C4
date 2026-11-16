@@ -11,6 +11,7 @@ class SriPropertiesTest {
     private static final String BASE_URL = "https://sri.test";
     private static final String EXISTS_PATH = "/exists";
     private static final String DETAILS_PATH = "/details";
+    private static final String VEHICLE_PATH = "/vehicle";
 
     @Test
     void acceptsPositiveTimeoutsWithMillisecondPrecision() {
@@ -32,6 +33,6 @@ class SriPropertiesTest {
     }
 
     private SriProperties properties(Duration connectTimeout, Duration readTimeout) {
-        return new SriProperties(BASE_URL, EXISTS_PATH, DETAILS_PATH, connectTimeout, readTimeout);
+        return new SriProperties(BASE_URL, EXISTS_PATH, DETAILS_PATH, VEHICLE_PATH, connectTimeout, readTimeout);
     }
 }

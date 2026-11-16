@@ -35,7 +35,7 @@ class SriClientConfigurationTest {
 
         try {
             String baseUrl = "http://127.0.0.1:" + server.getAddress().getPort();
-            SriProperties properties = new SriProperties(baseUrl, "/exists", "/details",
+            SriProperties properties = new SriProperties(baseUrl, "/exists", "/details", "/vehicle",
                     Duration.ofSeconds(2), Duration.ofSeconds(2));
             RestClient restClient = new SriClientConfiguration().sriRestClient(RestClient.builder(), properties);
             SRIContribuyenteClient client = new SRIContribuyenteClient(restClient, properties);

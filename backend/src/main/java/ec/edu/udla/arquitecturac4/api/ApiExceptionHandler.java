@@ -5,6 +5,7 @@ import ec.edu.udla.arquitecturac4.consulta.IntegracionPendienteException;
 import ec.edu.udla.arquitecturac4.consulta.NoEsPersonaNaturalException;
 import ec.edu.udla.arquitecturac4.consulta.SriNoDisponibleException;
 import ec.edu.udla.arquitecturac4.consulta.SriRespuestaInvalidaException;
+import ec.edu.udla.arquitecturac4.consulta.VehiculoNoEncontradoException;
 import java.util.Comparator;
 import java.util.List;
 import org.springframework.http.HttpStatus;
@@ -57,6 +58,12 @@ public class ApiExceptionHandler {
     public ResponseEntity<ApiErrorResponse> handleContributorNotFound(ContribuyenteNoEncontradoException exception) {
         return error(HttpStatus.NOT_FOUND, "CONTRIBUYENTE_NO_ENCONTRADO",
                 "No se encontró un contribuyente con los datos ingresados.");
+    }
+
+    @ExceptionHandler(VehiculoNoEncontradoException.class)
+    public ResponseEntity<ApiErrorResponse> handleVehicleNotFound(VehiculoNoEncontradoException exception) {
+        return error(HttpStatus.NOT_FOUND, "VEHICULO_NO_ENCONTRADO",
+                "No se encontró un vehículo con la placa ingresada.");
     }
 
     @ExceptionHandler(NoEsPersonaNaturalException.class)
