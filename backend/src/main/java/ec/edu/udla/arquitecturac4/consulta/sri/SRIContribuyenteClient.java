@@ -9,6 +9,7 @@ import java.net.SocketTimeoutException;
 import java.net.http.HttpTimeoutException;
 import java.util.List;
 import java.util.Objects;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -25,7 +26,7 @@ public class SRIContribuyenteClient {
     private final RestClient restClient;
     private final SriProperties properties;
 
-    public SRIContribuyenteClient(RestClient sriRestClient, SriProperties properties) {
+    public SRIContribuyenteClient(@Qualifier("sriRestClient") RestClient sriRestClient, SriProperties properties) {
         this.restClient = sriRestClient;
         this.properties = properties;
     }

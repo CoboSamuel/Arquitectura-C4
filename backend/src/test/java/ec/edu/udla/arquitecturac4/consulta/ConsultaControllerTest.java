@@ -1,6 +1,11 @@
 package ec.edu.udla.arquitecturac4.consulta;
 
 import ec.edu.udla.arquitecturac4.api.ApiExceptionHandler;
+import ec.edu.udla.arquitecturac4.consulta.ant.AntNoDisponibleException;
+import ec.edu.udla.arquitecturac4.consulta.ant.AntRespuestaInvalidaException;
+import ec.edu.udla.arquitecturac4.consulta.cache.ConsultaLicenciaResult;
+import ec.edu.udla.arquitecturac4.consulta.cache.LicenciaCacheNoConfiguradaException;
+import ec.edu.udla.arquitecturac4.consulta.cache.LicenciaCacheService;
 import ec.edu.udla.arquitecturac4.consulta.sri.SRIContribuyenteClient;
 import ec.edu.udla.arquitecturac4.consulta.sri.SRIVehiculoClient;
 import ec.edu.udla.arquitecturac4.consulta.sri.dto.SriContribuyenteResponse;
@@ -8,6 +13,8 @@ import ec.edu.udla.arquitecturac4.consulta.sri.dto.SriFechasContribuyente;
 import ec.edu.udla.arquitecturac4.consulta.sri.dto.SriVehiculoData;
 import java.util.List;
 import java.util.Optional;
+import java.math.BigDecimal;
+import java.time.Instant;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -40,6 +47,9 @@ class ConsultaControllerTest {
 
     @MockitoBean
     private SRIVehiculoClient sriVehiculoClient;
+
+    @MockitoBean
+    private LicenciaCacheService licenciaCacheService;
 
     @Test
     void invalidContributorFieldsReturn400WithoutEchoingSubmittedValues() throws Exception {
@@ -306,13 +316,109 @@ class ConsultaControllerTest {
     }
 
     @Test
-    void validLicenseRequestReturnsIntegrationPending() throws Exception {
+    void validLicenseRequestReturnsAllowlistedAntSummary() throws Exception {
+        when(licenciaCacheService.consultar("0000000000", "ZZZ9999"))
+                .thenReturn(new ConsultaLicenciaResult(
+                        new BigDecimal("25"), Instant.parse("2026-11-15T12:00:00Z"),
+                        ConsultaLicenciaResult.Origen.ANT, false));
+
         mockMvc.perform(post("/api/v1/consultas/licencias")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"cedula":"1710034065","placa":"ABC1234"}
+                                {"cedula":"0000000000","placa":"ZZZ9999"}
                                 """))
-                .andExpect(status().isNotImplemented())
-                .andExpect(jsonPath("$.code").value("INTEGRACION_PENDIENTE"));
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.puntosDisponibles").value(25))
+                .andExpect(jsonPath("$.actualizadoEn").value("2026-11-15T12:00:00Z"))
+                .andExpect(jsonPath("$.origen").value("ANT"))
+                .andExpect(jsonPath("$.desactualizado").value(false))
+                .andExpect(content().string(not(containsString("0000000000"))))
+                .andExpect(content().string(not(containsString("ZZZ9999"))))
+                .andExpect(content().string(not(containsString("<html"))));
+    }
+
+    @Test
+    void staleLicenseSummaryReturnsCacheOriginAndStaleMarker() throws Exception {
+        when(licenciaCacheService.consultar("0000000000", "ZZZ9999"))
+                .thenReturn(new ConsultaLicenciaResult(
+                        new BigDecimal("20"), Instant.parse("2026-11-15T11:00:00Z"),
+                        ConsultaLicenciaResult.Origen.CACHE, true));
+
+        mockMvc.perform(post("/api/v1/consultas/licencias")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"cedula":"0000000000","placa":"ZZZ9999"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.origen").value("CACHE"))
+                .andExpect(jsonPath("$.desactualizado").value(true))
+                .andExpect(content().string(not(containsString("0000000000"))))
+                .andExpect(content().string(not(containsString("ZZZ9999"))));
+    }
+
+    @Test
+    void missingLicenseMapsTo404WithoutEchoingIdentifiers() throws Exception {
+        when(licenciaCacheService.consultar("0000000000", "ZZZ9999"))
+                .thenThrow(new LicenciaNoEncontradaException());
+
+        mockMvc.perform(post("/api/v1/consultas/licencias")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"cedula":"0000000000","placa":"ZZZ9999"}
+                                """))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("LICENCIA_NO_ENCONTRADA"))
+                .andExpect(content().string(not(containsString("0000000000"))))
+                .andExpect(content().string(not(containsString("ZZZ9999"))));
+    }
+
+    @Test
+    void invalidAntHtmlMapsTo502WithoutExternalContent() throws Exception {
+        when(licenciaCacheService.consultar("0000000000", "ZZZ9999"))
+                .thenThrow(new AntRespuestaInvalidaException());
+
+        mockMvc.perform(post("/api/v1/consultas/licencias")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"cedula":"0000000000","placa":"ZZZ9999"}
+                                """))
+                .andExpect(status().isBadGateway())
+                .andExpect(jsonPath("$.code").value("ANT_RESPUESTA_INVALIDA"))
+                .andExpect(content().string(not(containsString("0000000000"))))
+                .andExpect(content().string(not(containsString("ZZZ9999"))))
+                .andExpect(content().string(not(containsString("<html"))));
+    }
+
+    @Test
+    void unavailableAntWithoutCacheMapsTo503() throws Exception {
+        when(licenciaCacheService.consultar("0000000000", "ZZZ9999"))
+                .thenThrow(new AntNoDisponibleException());
+
+        mockMvc.perform(post("/api/v1/consultas/licencias")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"cedula":"0000000000","placa":"ZZZ9999"}
+                                """))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.code").value("ANT_NO_DISPONIBLE"))
+                .andExpect(content().string(not(containsString("0000000000"))))
+                .andExpect(content().string(not(containsString("ZZZ9999"))));
+    }
+
+    @Test
+    void missingLicenseCacheConfigurationMapsToGeneric503() throws Exception {
+        when(licenciaCacheService.consultar("0000000000", "ZZZ9999"))
+                .thenThrow(new LicenciaCacheNoConfiguradaException());
+
+        mockMvc.perform(post("/api/v1/consultas/licencias")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"cedula":"0000000000","placa":"ZZZ9999"}
+                                """))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.code").value("CACHE_NO_CONFIGURADA"))
+                .andExpect(content().string(not(containsString("0000000000"))))
+                .andExpect(content().string(not(containsString("ZZZ9999"))))
+                .andExpect(content().string(not(containsString("ANT_CACHE_KEY_SECRET"))));
     }
 }

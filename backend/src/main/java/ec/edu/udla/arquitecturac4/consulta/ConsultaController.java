@@ -3,6 +3,7 @@ package ec.edu.udla.arquitecturac4.consulta;
 import ec.edu.udla.arquitecturac4.consulta.dto.ConsultaContribuyenteRequest;
 import ec.edu.udla.arquitecturac4.consulta.dto.ConsultaContribuyenteResponse;
 import ec.edu.udla.arquitecturac4.consulta.dto.ConsultaLicenciaRequest;
+import ec.edu.udla.arquitecturac4.consulta.dto.ConsultaLicenciaResponse;
 import ec.edu.udla.arquitecturac4.consulta.dto.ConsultaVehiculoRequest;
 import ec.edu.udla.arquitecturac4.consulta.dto.ConsultaVehiculoResponse;
 import jakarta.validation.Valid;
@@ -34,7 +35,7 @@ public class ConsultaController {
     }
 
     @PostMapping(path = "/licencias", consumes = MediaType.APPLICATION_JSON_VALUE)
-    public void consultarLicencia(@Valid @RequestBody ConsultaLicenciaRequest request) {
-        consultaService.consultarLicencia(request);
+    public ConsultaLicenciaResponse consultarLicencia(@Valid @RequestBody ConsultaLicenciaRequest request) {
+        return consultaService.consultarLicencia(request);
     }
 }

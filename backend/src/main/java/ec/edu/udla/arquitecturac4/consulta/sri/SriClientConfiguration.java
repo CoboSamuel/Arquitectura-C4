@@ -11,7 +11,7 @@ import org.springframework.web.client.RestClient;
 @EnableConfigurationProperties(SriProperties.class)
 public class SriClientConfiguration {
 
-    @Bean
+    @Bean("sriRestClient")
     RestClient sriRestClient(RestClient.Builder builder, SriProperties properties) {
         HttpClient httpClient = HttpClient.newBuilder()
                 .connectTimeout(properties.connectTimeout())

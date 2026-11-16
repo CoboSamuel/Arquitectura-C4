@@ -3,10 +3,13 @@ package ec.edu.udla.arquitecturac4.consulta;
 import ec.edu.udla.arquitecturac4.consulta.dto.ConsultaContribuyenteRequest;
 import ec.edu.udla.arquitecturac4.consulta.dto.ConsultaContribuyenteResponse;
 import ec.edu.udla.arquitecturac4.consulta.dto.ConsultaLicenciaRequest;
+import ec.edu.udla.arquitecturac4.consulta.dto.ConsultaLicenciaResponse;
 import ec.edu.udla.arquitecturac4.consulta.dto.ConsultaVehiculoResponse;
 import ec.edu.udla.arquitecturac4.consulta.dto.ConsultaVehiculoRequest;
 import ec.edu.udla.arquitecturac4.consulta.sri.SRIContribuyenteClient;
 import ec.edu.udla.arquitecturac4.consulta.sri.SRIVehiculoClient;
+import ec.edu.udla.arquitecturac4.consulta.cache.ConsultaLicenciaResult;
+import ec.edu.udla.arquitecturac4.consulta.cache.LicenciaCacheService;
 import ec.edu.udla.arquitecturac4.consulta.sri.dto.SriContribuyenteResponse;
 import ec.edu.udla.arquitecturac4.consulta.sri.dto.SriVehiculoData;
 import java.util.List;
@@ -18,10 +21,15 @@ public class ConsultaService {
 
     private final SRIContribuyenteClient sriContribuyenteClient;
     private final SRIVehiculoClient sriVehiculoClient;
+    private final LicenciaCacheService licenciaCacheService;
 
-    public ConsultaService(SRIContribuyenteClient sriContribuyenteClient, SRIVehiculoClient sriVehiculoClient) {
+    public ConsultaService(
+            SRIContribuyenteClient sriContribuyenteClient,
+            SRIVehiculoClient sriVehiculoClient,
+            LicenciaCacheService licenciaCacheService) {
         this.sriContribuyenteClient = sriContribuyenteClient;
         this.sriVehiculoClient = sriVehiculoClient;
+        this.licenciaCacheService = licenciaCacheService;
     }
 
     public ConsultaContribuyenteResponse consultarContribuyente(ConsultaContribuyenteRequest request) {
@@ -92,7 +100,9 @@ public class ConsultaService {
                 vehicle.cilindraje());
     }
 
-    public void consultarLicencia(ConsultaLicenciaRequest request) {
-        throw new IntegracionPendienteException("La consulta de licencias todavía no está disponible.");
+    public ConsultaLicenciaResponse consultarLicencia(ConsultaLicenciaRequest request) {
+        ConsultaLicenciaResult result = licenciaCacheService.consultar(request.cedula(), request.placa());
+        return new ConsultaLicenciaResponse(
+                result.puntosDisponibles(), result.actualizadoEn(), result.origen(), result.desactualizado());
     }
 }

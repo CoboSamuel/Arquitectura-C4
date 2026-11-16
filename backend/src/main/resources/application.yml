@@ -4,6 +4,9 @@ spring:
   jackson:
     deserialization:
       fail-on-unknown-properties: true
+  data:
+    redis:
+      url: ${REDIS_URL:redis://localhost:6379}
 
 server:
   port: ${SERVER_PORT:8080}
@@ -16,3 +19,12 @@ integrations:
     vehicle-path: ${SRI_VEHICLE_PATH:/sri-matriculacion-vehicular-recaudacion-servicio-internet/rest/BaseVehiculo/obtenerPorNumeroPlacaOPorNumeroCampvOPorNumeroCpn}
     connect-timeout: ${SRI_CONNECT_TIMEOUT:3s}
     read-timeout: ${SRI_READ_TIMEOUT:8s}
+  ant:
+    base-url: ${ANT_BASE_URL:https://consultaweb.ant.gob.ec}
+    path: ${ANT_PATH:/PortalWEB/paginas/clientes/clp_grid_citaciones.jsp}
+    connect-timeout: ${ANT_CONNECT_TIMEOUT:3s}
+    read-timeout: ${ANT_READ_TIMEOUT:5s}
+    cache:
+      freshness: ${ANT_CACHE_FRESHNESS:15m}
+      max-stale-ttl: ${ANT_CACHE_MAX_STALE_TTL:7d}
+      key-secret: ${ANT_CACHE_KEY_SECRET:}

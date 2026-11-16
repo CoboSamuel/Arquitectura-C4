@@ -4,7 +4,8 @@ info:
   version: 1.0.0
   description: >-
     Contrato versionado para consultas. Las consultas de contribuyentes y
-    vehículos integran el SRI; la consulta de licencias sigue pendiente.
+    vehículos integran el SRI; la consulta de licencias integra la ANT y usa
+    Redis Cloud para conservar el último resumen válido.
 servers:
   - url: http://localhost:8080
 paths:
@@ -87,16 +88,26 @@ paths:
             schema:
               $ref: '#/components/schemas/ConsultaLicenciaRequest'
       responses:
+        '200':
+          description: Puntos de licencia obtenidos de ANT o del último dato válido en caché.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConsultaLicenciaResponse'
         '400':
           $ref: '#/components/responses/ValidationError'
+        '404':
+          $ref: '#/components/responses/LicenseNotFound'
+        '502':
+          $ref: '#/components/responses/InvalidAntResponse'
+        '503':
+          $ref: '#/components/responses/LicenseUnavailable'
         '405':
           $ref: '#/components/responses/MethodNotAllowed'
         '406':
           $ref: '#/components/responses/NotAcceptable'
         '415':
           $ref: '#/components/responses/UnsupportedMediaType'
-        '501':
-          $ref: '#/components/responses/IntegrationPending'
         '500':
           $ref: '#/components/responses/InternalError'
 components:
@@ -191,6 +202,24 @@ components:
         placa:
           type: string
           pattern: '^[A-Za-z0-9-]{5,8}$'
+    ConsultaLicenciaResponse:
+      type: object
+      additionalProperties: false
+      required: [puntosDisponibles, actualizadoEn, origen, desactualizado]
+      properties:
+        puntosDisponibles:
+          type: number
+          minimum: 0
+          description: Resumen allowlisted; nunca incluye datos personales.
+        actualizadoEn:
+          type: string
+          format: date-time
+        origen:
+          type: string
+          enum: [ANT, CACHE]
+        desactualizado:
+          type: boolean
+          description: True cuando se entregó el último resumen cacheado tras un fallo ANT.
     ApiErrorResponse:
       type: object
       required: [status, code, message, fieldErrors]
@@ -205,7 +234,9 @@ components:
             Código estable: VALIDATION_ERROR, INVALID_JSON, INTEGRACION_PENDIENTE,
             INTERNAL_ERROR, METHOD_NOT_ALLOWED, UNSUPPORTED_MEDIA_TYPE,
             CONTRIBUYENTE_NO_ENCONTRADO, NO_ES_PERSONA_NATURAL,
-            VEHICULO_NO_ENCONTRADO, SRI_NO_DISPONIBLE o SRI_RESPUESTA_INVALIDA.
+            VEHICULO_NO_ENCONTRADO, SRI_NO_DISPONIBLE, SRI_RESPUESTA_INVALIDA,
+            LICENCIA_NO_ENCONTRADA, ANT_RESPUESTA_INVALIDA, ANT_NO_DISPONIBLE
+            o CACHE_NO_CONFIGURADA.
         message:
           type: string
         fieldErrors:
@@ -275,6 +306,30 @@ components:
             $ref: '#/components/schemas/ApiErrorResponse'
     VehicleNotFound:
       description: El SRI no devolvió un vehículo para la placa consultada.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiErrorResponse'
+    LicenseNotFound:
+      description: ANT confirmó que no se encontró una licencia para la consulta.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiErrorResponse'
+    InvalidAntResponse:
+      description: ANT devolvió HTML que no pudo validarse como un resumen de puntos.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiErrorResponse'
+    AntUnavailable:
+      description: ANT no respondió y no había un valor válido retenido en Redis Cloud.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiErrorResponse'
+    LicenseUnavailable:
+      description: ANT no respondió sin caché utilizable, o falta configurar la clave segura de caché.
       content:
         application/json:
           schema:

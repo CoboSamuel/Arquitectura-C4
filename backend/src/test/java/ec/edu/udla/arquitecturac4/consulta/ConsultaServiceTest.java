@@ -2,6 +2,9 @@ package ec.edu.udla.arquitecturac4.consulta;
 
 import ec.edu.udla.arquitecturac4.consulta.dto.ConsultaContribuyenteRequest;
 import ec.edu.udla.arquitecturac4.consulta.dto.ConsultaContribuyenteResponse;
+import ec.edu.udla.arquitecturac4.consulta.dto.ConsultaLicenciaRequest;
+import ec.edu.udla.arquitecturac4.consulta.cache.ConsultaLicenciaResult;
+import ec.edu.udla.arquitecturac4.consulta.cache.LicenciaCacheService;
 import ec.edu.udla.arquitecturac4.consulta.dto.ConsultaVehiculoRequest;
 import ec.edu.udla.arquitecturac4.consulta.dto.ConsultaVehiculoResponse;
 import ec.edu.udla.arquitecturac4.consulta.sri.SRIContribuyenteClient;
@@ -11,6 +14,8 @@ import ec.edu.udla.arquitecturac4.consulta.sri.dto.SriFechasContribuyente;
 import ec.edu.udla.arquitecturac4.consulta.sri.dto.SriVehiculoData;
 import java.util.List;
 import java.util.Optional;
+import java.math.BigDecimal;
+import java.time.Instant;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -19,6 +24,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -34,6 +40,9 @@ class ConsultaServiceTest {
 
     @Mock
     private SRIVehiculoClient sriVehiculoClient;
+
+    @Mock
+    private LicenciaCacheService licenciaCacheService;
 
     @InjectMocks
     private ConsultaService consultaService;
@@ -139,6 +148,22 @@ class ConsultaServiceTest {
 
         assertThrows(SriRespuestaInvalidaException.class,
                 () -> consultaService.consultarVehiculo(new ConsultaVehiculoRequest("ABC1234")));
+    }
+
+    @Test
+    void licenseResultMapsToPublicResponseWithoutIdentifiers() {
+        when(licenciaCacheService.consultar("0000000000", "ZZZ9999"))
+                .thenReturn(new ConsultaLicenciaResult(
+                        new BigDecimal("19.5"), Instant.parse("2026-11-15T12:00:00Z"),
+                        ConsultaLicenciaResult.Origen.CACHE, true));
+
+        var result = consultaService.consultarLicencia(new ConsultaLicenciaRequest("0000000000", "ZZZ9999"));
+
+        assertEquals(new BigDecimal("19.5"), result.puntosDisponibles());
+        assertEquals(Instant.parse("2026-11-15T12:00:00Z"), result.actualizadoEn());
+        assertEquals(ConsultaLicenciaResult.Origen.CACHE, result.origen());
+        assertTrue(result.desactualizado());
+        verify(licenciaCacheService).consultar("0000000000", "ZZZ9999");
     }
 
     private ConsultaContribuyenteRequest request() {

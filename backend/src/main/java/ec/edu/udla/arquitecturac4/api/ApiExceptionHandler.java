@@ -2,10 +2,14 @@ package ec.edu.udla.arquitecturac4.api;
 
 import ec.edu.udla.arquitecturac4.consulta.ContribuyenteNoEncontradoException;
 import ec.edu.udla.arquitecturac4.consulta.IntegracionPendienteException;
+import ec.edu.udla.arquitecturac4.consulta.LicenciaNoEncontradaException;
 import ec.edu.udla.arquitecturac4.consulta.NoEsPersonaNaturalException;
 import ec.edu.udla.arquitecturac4.consulta.SriNoDisponibleException;
 import ec.edu.udla.arquitecturac4.consulta.SriRespuestaInvalidaException;
 import ec.edu.udla.arquitecturac4.consulta.VehiculoNoEncontradoException;
+import ec.edu.udla.arquitecturac4.consulta.ant.AntNoDisponibleException;
+import ec.edu.udla.arquitecturac4.consulta.ant.AntRespuestaInvalidaException;
+import ec.edu.udla.arquitecturac4.consulta.cache.LicenciaCacheNoConfiguradaException;
 import java.util.Comparator;
 import java.util.List;
 import org.springframework.http.HttpStatus;
@@ -64,6 +68,31 @@ public class ApiExceptionHandler {
     public ResponseEntity<ApiErrorResponse> handleVehicleNotFound(VehiculoNoEncontradoException exception) {
         return error(HttpStatus.NOT_FOUND, "VEHICULO_NO_ENCONTRADO",
                 "No se encontró un vehículo con la placa ingresada.");
+    }
+
+    @ExceptionHandler(LicenciaNoEncontradaException.class)
+    public ResponseEntity<ApiErrorResponse> handleLicenseNotFound(LicenciaNoEncontradaException exception) {
+        return error(HttpStatus.NOT_FOUND, "LICENCIA_NO_ENCONTRADA",
+                "No se encontró una licencia para la consulta realizada.");
+    }
+
+    @ExceptionHandler(AntRespuestaInvalidaException.class)
+    public ResponseEntity<ApiErrorResponse> handleInvalidAntResponse(AntRespuestaInvalidaException exception) {
+        return error(HttpStatus.BAD_GATEWAY, "ANT_RESPUESTA_INVALIDA",
+                "El servicio ANT devolvió una respuesta no válida.");
+    }
+
+    @ExceptionHandler(AntNoDisponibleException.class)
+    public ResponseEntity<ApiErrorResponse> handleAntUnavailable(AntNoDisponibleException exception) {
+        return error(HttpStatus.SERVICE_UNAVAILABLE, "ANT_NO_DISPONIBLE",
+                "El servicio ANT no está disponible temporalmente.");
+    }
+
+    @ExceptionHandler(LicenciaCacheNoConfiguradaException.class)
+    public ResponseEntity<ApiErrorResponse> handleLicenseCacheNotConfigured(
+            LicenciaCacheNoConfiguradaException exception) {
+        return error(HttpStatus.SERVICE_UNAVAILABLE, "CACHE_NO_CONFIGURADA",
+                "La consulta de licencias no está disponible temporalmente.");
     }
 
     @ExceptionHandler(NoEsPersonaNaturalException.class)

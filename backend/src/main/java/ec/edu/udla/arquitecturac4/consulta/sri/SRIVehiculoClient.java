@@ -10,6 +10,7 @@ import java.net.http.HttpTimeoutException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -25,7 +26,7 @@ public class SRIVehiculoClient {
     private final RestClient restClient;
     private final SriProperties properties;
 
-    public SRIVehiculoClient(RestClient sriRestClient, SriProperties properties) {
+    public SRIVehiculoClient(@Qualifier("sriRestClient") RestClient sriRestClient, SriProperties properties) {
         this.restClient = sriRestClient;
         this.properties = properties;
     }
