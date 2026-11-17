@@ -13,6 +13,7 @@ const VALIDADORES = {
 };
 
 export function errorVisibleCampo(campo, valor, tocado) {
-  if (!tocado) return null;
+  const tieneContenido = typeof valor === "string" && valor.trim() !== "";
+  if (!tocado && !tieneContenido) return null;
   return VALIDADORES[campo]?.(valor) ?? null;
 }

@@ -17,6 +17,10 @@ test("App renderiza una portada antes de iniciar la consulta", async (context) =
 
   assert.match(markup, /Consulta ciudadana/);
   assert.match(markup, /Consulta tu información tributaria, vehicular y de licencia/);
+  assert.match(markup, /Quito|Ecuador/);
+  assert.match(markup, /quito-hero\.png/);
+  assert.match(markup, /Ilustración.*Quito|Quito.*ilustración/i);
+  assert.match(markup, /landing-visual/);
   assert.match(markup, /¿Qué puedes consultar\?/);
   assert.match(markup, /Iniciar consulta/);
   assert.match(markup, /Datos personales/);
