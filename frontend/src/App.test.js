@@ -19,6 +19,10 @@ test("App renderiza el primer paso del flujo React", async (context) => {
   assert.match(markup, /Tus datos/);
   assert.match(markup, /Correo electrónico/);
   assert.match(markup, /Saltar al contenido principal/);
+  assert.doesNotMatch(
+    markup,
+    /Demostración académica con datos ficticios|demo@example\.test|0000000000000|ZZZ9999|0000000000|No ingreses información personal real/,
+  );
   assert.match(markup, /role="progressbar"/);
   assert.match(markup, /aria-valuenow="0"/);
   assert.match(markup, /Paso 1 de 3/);

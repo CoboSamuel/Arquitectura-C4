@@ -4,8 +4,9 @@ info:
   version: 1.0.0
   description: >-
     Contrato versionado para consultas. Las consultas de contribuyentes y
-    vehículos integran el SRI; la consulta de licencias integra la ANT y usa
-    Redis Cloud para conservar el último resumen válido.
+    vehículos integran el SRI; la consulta de licencias conserva el contrato
+    de ANT, usa un proveedor simulado por defecto mientras el sitio externo
+    está caído y usa Redis Cloud para conservar el último resumen válido.
 servers:
   - url: http://localhost:8080
 paths:
@@ -89,7 +90,7 @@ paths:
               $ref: '#/components/schemas/ConsultaLicenciaRequest'
       responses:
         '200':
-          description: Puntos de licencia obtenidos de ANT o del último dato válido en caché.
+          description: Puntos de licencia obtenidos del proveedor ANT simulado o real, o del último dato válido en caché.
           content:
             application/json:
               schema:
@@ -166,9 +167,7 @@ components:
     ConsultaVehiculoResponse:
       type: object
       additionalProperties: false
-      description: >-
-        Resumen local basado en una fixture positiva sintética; no representa
-        una respuesta positiva del SRI verificada en vivo.
+      description: Resumen local allowlisted basado en la respuesta del SRI; no incluye identificadores del titular.
       required: [placa, marca, modelo, anioModelo, claseVehiculo]
       properties:
         placa:
@@ -216,7 +215,8 @@ components:
           format: date-time
         origen:
           type: string
-          enum: [ANT, CACHE]
+          enum: [ANT, SIMULADO, CACHE]
+          description: ANT es la fuente real, SIMULADO mantiene el contrato durante la indisponibilidad del sitio y CACHE es el último dato válido retenido.
         desactualizado:
           type: boolean
           description: True cuando se entregó el último resumen cacheado tras un fallo ANT.

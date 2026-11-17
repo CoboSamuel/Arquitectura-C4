@@ -6,8 +6,8 @@ import ec.edu.udla.arquitecturac4.consulta.dto.ConsultaLicenciaRequest;
 import ec.edu.udla.arquitecturac4.consulta.dto.ConsultaLicenciaResponse;
 import ec.edu.udla.arquitecturac4.consulta.dto.ConsultaVehiculoResponse;
 import ec.edu.udla.arquitecturac4.consulta.dto.ConsultaVehiculoRequest;
-import ec.edu.udla.arquitecturac4.consulta.sri.SRIContribuyenteClient;
-import ec.edu.udla.arquitecturac4.consulta.sri.SRIVehiculoClient;
+import ec.edu.udla.arquitecturac4.consulta.spi.ContribuyenteProvider;
+import ec.edu.udla.arquitecturac4.consulta.spi.VehiculoProvider;
 import ec.edu.udla.arquitecturac4.consulta.cache.ConsultaLicenciaResult;
 import ec.edu.udla.arquitecturac4.consulta.cache.LicenciaCacheService;
 import ec.edu.udla.arquitecturac4.consulta.sri.dto.SriContribuyenteResponse;
@@ -19,13 +19,13 @@ import org.springframework.stereotype.Service;
 @Service
 public class ConsultaService {
 
-    private final SRIContribuyenteClient sriContribuyenteClient;
-    private final SRIVehiculoClient sriVehiculoClient;
+    private final ContribuyenteProvider sriContribuyenteClient;
+    private final VehiculoProvider sriVehiculoClient;
     private final LicenciaCacheService licenciaCacheService;
 
     public ConsultaService(
-            SRIContribuyenteClient sriContribuyenteClient,
-            SRIVehiculoClient sriVehiculoClient,
+            ContribuyenteProvider sriContribuyenteClient,
+            VehiculoProvider sriVehiculoClient,
             LicenciaCacheService licenciaCacheService) {
         this.sriContribuyenteClient = sriContribuyenteClient;
         this.sriVehiculoClient = sriVehiculoClient;
@@ -43,10 +43,13 @@ public class ConsultaService {
             throw new ContribuyenteNoEncontradoException();
         }
 
-        SriContribuyenteResponse contributor = contributors.stream()
+        List<SriContribuyenteResponse> matches = contributors.stream()
                 .filter(candidate -> ruc.equals(candidate.numeroRuc()))
-                .findFirst()
-                .orElseThrow(SriRespuestaInvalidaException::new);
+                .toList();
+        if (matches.size() != 1) {
+            throw new SriRespuestaInvalidaException();
+        }
+        SriContribuyenteResponse contributor = matches.getFirst();
 
         if (contributor.tipoContribuyente() == null
                 || contributor.tipoContribuyente().isBlank()) {
@@ -86,8 +89,7 @@ public class ConsultaService {
         SriVehiculoData vehicle = result.orElseThrow(VehiculoNoEncontradoException::new);
         if (isBlank(vehicle.marca())
                 || isBlank(vehicle.modelo())
-                || isBlank(vehicle.anioModelo())
-                || isBlank(vehicle.claseVehiculo())) {
+                || isBlank(vehicle.anioModelo())) {
             throw new SriRespuestaInvalidaException();
         }
         return new ConsultaVehiculoResponse(

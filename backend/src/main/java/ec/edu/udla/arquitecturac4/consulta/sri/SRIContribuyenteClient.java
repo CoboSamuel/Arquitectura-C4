@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import ec.edu.udla.arquitecturac4.consulta.SriNoDisponibleException;
 import ec.edu.udla.arquitecturac4.consulta.SriRespuestaInvalidaException;
 import ec.edu.udla.arquitecturac4.consulta.sri.dto.SriContribuyenteResponse;
+import ec.edu.udla.arquitecturac4.consulta.spi.ContribuyenteProvider;
 import java.net.ProtocolException;
 import java.net.SocketTimeoutException;
 import java.net.http.HttpTimeoutException;
@@ -11,6 +12,7 @@ import java.util.List;
 import java.util.Objects;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.context.annotation.Profile;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -21,7 +23,8 @@ import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClientResponseException;
 
 @Component
-public class SRIContribuyenteClient {
+@Profile("live")
+public class SRIContribuyenteClient implements ContribuyenteProvider {
 
     private final RestClient restClient;
     private final SriProperties properties;
@@ -31,6 +34,7 @@ public class SRIContribuyenteClient {
         this.properties = properties;
     }
 
+    @Override
     public boolean existe(String ruc) {
         try {
             ResponseEntity<JsonNode> response = restClient.get()
@@ -53,6 +57,7 @@ public class SRIContribuyenteClient {
         }
     }
 
+    @Override
     public List<SriContribuyenteResponse> obtener(String ruc) {
         try {
             ResponseEntity<List<SriContribuyenteResponse>> response = restClient.get()

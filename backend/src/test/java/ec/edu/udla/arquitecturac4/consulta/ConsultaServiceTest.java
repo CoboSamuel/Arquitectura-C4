@@ -7,8 +7,8 @@ import ec.edu.udla.arquitecturac4.consulta.cache.ConsultaLicenciaResult;
 import ec.edu.udla.arquitecturac4.consulta.cache.LicenciaCacheService;
 import ec.edu.udla.arquitecturac4.consulta.dto.ConsultaVehiculoRequest;
 import ec.edu.udla.arquitecturac4.consulta.dto.ConsultaVehiculoResponse;
-import ec.edu.udla.arquitecturac4.consulta.sri.SRIContribuyenteClient;
-import ec.edu.udla.arquitecturac4.consulta.sri.SRIVehiculoClient;
+import ec.edu.udla.arquitecturac4.consulta.spi.ContribuyenteProvider;
+import ec.edu.udla.arquitecturac4.consulta.spi.VehiculoProvider;
 import ec.edu.udla.arquitecturac4.consulta.sri.dto.SriContribuyenteResponse;
 import ec.edu.udla.arquitecturac4.consulta.sri.dto.SriFechasContribuyente;
 import ec.edu.udla.arquitecturac4.consulta.sri.dto.SriVehiculoData;
@@ -23,6 +23,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.never;
@@ -36,10 +37,10 @@ class ConsultaServiceTest {
     private static final String TEST_RUC = "9999999999999";
 
     @Mock
-    private SRIContribuyenteClient sriContribuyenteClient;
+    private ContribuyenteProvider sriContribuyenteClient;
 
     @Mock
-    private SRIVehiculoClient sriVehiculoClient;
+    private VehiculoProvider sriVehiculoClient;
 
     @Mock
     private LicenciaCacheService licenciaCacheService;
@@ -84,6 +85,17 @@ class ConsultaServiceTest {
         ConsultaContribuyenteResponse result = consultaService.consultarContribuyente(request());
 
         assertEquals("PERSONA NATURAL", result.tipoContribuyente());
+    }
+
+    @Test
+    void duplicateMatchingRucRecordsAreRejectedAsInvalidSriResponse() {
+        when(sriContribuyenteClient.existe(TEST_RUC)).thenReturn(true);
+        when(sriContribuyenteClient.obtener(TEST_RUC)).thenReturn(List.of(
+                contributor("PERSONA NATURAL", "PERSONA DE PRUEBA 1"),
+                contributor("PERSONA NATURAL", "PERSONA DE PRUEBA 2")));
+
+        assertThrows(SriRespuestaInvalidaException.class,
+                () -> consultaService.consultarContribuyente(request()));
     }
 
     @Test
@@ -139,6 +151,23 @@ class ConsultaServiceTest {
         assertEquals("AUTOMOVIL", result.claseVehiculo());
         assertEquals("AZUL", result.color());
         assertEquals("1600", result.cilindraje());
+    }
+
+    @Test
+    void vehicleWithMissingOptionalDetailsStillMapsToLocalResponse() {
+        when(sriVehiculoClient.buscar("ABC1234")).thenReturn(Optional.of(new SriVehiculoData(
+                "ABC1234", "MARCA SRI", "MODELO SRI", "2022", null, null, null)));
+
+        ConsultaVehiculoResponse result = consultaService.consultarVehiculo(
+                new ConsultaVehiculoRequest("ABC1234"));
+
+        assertEquals("ABC1234", result.placa());
+        assertEquals("MARCA SRI", result.marca());
+        assertEquals("MODELO SRI", result.modelo());
+        assertEquals("2022", result.anioModelo());
+        assertNull(result.claseVehiculo());
+        assertNull(result.color());
+        assertNull(result.cilindraje());
     }
 
     @Test

@@ -1,9 +1,9 @@
 package ec.edu.udla.arquitecturac4.consulta.cache;
 
 import ec.edu.udla.arquitecturac4.consulta.LicenciaNoEncontradaException;
-import ec.edu.udla.arquitecturac4.consulta.ant.ANTClient;
 import ec.edu.udla.arquitecturac4.consulta.ant.AntNoDisponibleException;
 import ec.edu.udla.arquitecturac4.consulta.ant.AntRespuestaInvalidaException;
+import ec.edu.udla.arquitecturac4.consulta.spi.PuntosLicenciaProvider;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
@@ -17,14 +17,14 @@ public class LicenciaCacheService {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(LicenciaCacheService.class);
 
-    private final ANTClient antClient;
+    private final PuntosLicenciaProvider antClient;
     private final LicenciaCache cache;
     private final CacheKeyFactory keyFactory;
     private final LicenciaCacheProperties properties;
     private final Clock clock;
 
     public LicenciaCacheService(
-            ANTClient antClient,
+            PuntosLicenciaProvider antClient,
             LicenciaCache cache,
             CacheKeyFactory keyFactory,
             LicenciaCacheProperties properties,
@@ -57,7 +57,7 @@ public class LicenciaCacheService {
             CachedLicensePoints latest = new CachedLicensePoints(points.orElseThrow(), fetchedAt);
             writeCache(key, latest);
             return new ConsultaLicenciaResult(
-                    latest.puntosDisponibles(), latest.actualizadoEn(), ConsultaLicenciaResult.Origen.ANT, false);
+                    latest.puntosDisponibles(), latest.actualizadoEn(), origenDelProveedor(), false);
         } catch (LicenciaNoEncontradaException exception) {
             throw exception;
         } catch (AntNoDisponibleException | AntRespuestaInvalidaException exception) {
@@ -103,5 +103,11 @@ public class LicenciaCacheService {
     private ConsultaLicenciaResult fromCache(CachedLicensePoints value, boolean stale) {
         return new ConsultaLicenciaResult(
                 value.puntosDisponibles(), value.actualizadoEn(), ConsultaLicenciaResult.Origen.CACHE, stale);
+    }
+
+    private ConsultaLicenciaResult.Origen origenDelProveedor() {
+        return PuntosLicenciaProvider.Fuente.SIMULADA.equals(antClient.fuente())
+                ? ConsultaLicenciaResult.Origen.SIMULADO
+                : ConsultaLicenciaResult.Origen.ANT;
     }
 }

@@ -1,7 +1,7 @@
 package ec.edu.udla.arquitecturac4.consulta.cache;
 
 import ec.edu.udla.arquitecturac4.consulta.LicenciaNoEncontradaException;
-import ec.edu.udla.arquitecturac4.consulta.ant.ANTClient;
+import ec.edu.udla.arquitecturac4.consulta.spi.PuntosLicenciaProvider;
 import ec.edu.udla.arquitecturac4.consulta.ant.AntNoDisponibleException;
 import ec.edu.udla.arquitecturac4.consulta.ant.AntRespuestaInvalidaException;
 import java.math.BigDecimal;
@@ -37,14 +37,14 @@ class LicenciaCacheServiceTest {
     private static final Duration FRESHNESS = Duration.ofMinutes(15);
     private static final Duration RETENTION = Duration.ofDays(7);
 
-    private ANTClient antClient;
+    private PuntosLicenciaProvider antClient;
     private LicenciaCache cache;
     private CacheKeyFactory keyFactory;
     private LicenciaCacheService service;
 
     @BeforeEach
     void setUp() {
-        antClient = mock(ANTClient.class);
+        antClient = mock(PuntosLicenciaProvider.class);
         cache = mock(LicenciaCache.class);
         keyFactory = mock(CacheKeyFactory.class);
         when(keyFactory.create(CEDULA, PLATE)).thenReturn(CACHE_KEY);
@@ -80,6 +80,20 @@ class LicenciaCacheServiceTest {
         assertEquals(ConsultaLicenciaResult.Origen.ANT, result.origen());
         assertFalse(result.desactualizado());
         verify(cache).put(CACHE_KEY, cached(new BigDecimal("25"), NOW), RETENTION);
+    }
+
+    @Test
+    void cacheMissReturnsSimulatedResultAndStoresSummary() {
+        when(cache.get(CACHE_KEY)).thenReturn(Optional.empty());
+        when(antClient.fuente()).thenReturn(PuntosLicenciaProvider.Fuente.SIMULADA);
+        when(antClient.consultarPuntos(CEDULA, PLATE)).thenReturn(Optional.of(new BigDecimal("30")));
+
+        ConsultaLicenciaResult result = service.consultar(CEDULA, PLATE);
+
+        assertEquals(new BigDecimal("30"), result.puntosDisponibles());
+        assertEquals(ConsultaLicenciaResult.Origen.SIMULADO, result.origen());
+        assertFalse(result.desactualizado());
+        verify(cache).put(CACHE_KEY, cached(new BigDecimal("30"), NOW), RETENTION);
     }
 
     @Test

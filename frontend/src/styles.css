@@ -701,6 +701,11 @@ input:focus-visible {
   color: #84621a;
 }
 
+.origin-badge.is-simulated {
+  border-color: #c9d8ef;
+  color: #315d94;
+}
+
 .points-display {
   display: flex;
   align-items: baseline;

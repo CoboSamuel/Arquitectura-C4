@@ -21,6 +21,7 @@ public record ConsultaLicenciaResult(
 
     public enum Origen {
         ANT,
+        SIMULADO,
         CACHE
     }
 }

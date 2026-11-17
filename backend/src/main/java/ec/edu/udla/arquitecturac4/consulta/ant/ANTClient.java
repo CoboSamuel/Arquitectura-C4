@@ -1,12 +1,14 @@
 package ec.edu.udla.arquitecturac4.consulta.ant;
 
+import ec.edu.udla.arquitecturac4.consulta.spi.PuntosLicenciaProvider;
+import java.math.BigDecimal;
 import java.net.ProtocolException;
 import java.net.SocketTimeoutException;
 import java.net.http.HttpTimeoutException;
-import java.math.BigDecimal;
 import java.util.Map;
 import java.util.Optional;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.context.annotation.Profile;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -17,7 +19,8 @@ import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
 
 @Component
-public class ANTClient {
+@Profile("ant-real")
+public class ANTClient implements PuntosLicenciaProvider {
 
     private final RestClient restClient;
     private final AntProperties properties;
@@ -32,6 +35,7 @@ public class ANTClient {
         this.parser = parser;
     }
 
+    @Override
     public Optional<BigDecimal> consultarPuntos(String cedula, String placa) {
         try {
             ResponseEntity<String> response = restClient.get()

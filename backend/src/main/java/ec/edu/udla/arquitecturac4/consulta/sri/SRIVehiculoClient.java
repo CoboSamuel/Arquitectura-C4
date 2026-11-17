@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import ec.edu.udla.arquitecturac4.consulta.SriNoDisponibleException;
 import ec.edu.udla.arquitecturac4.consulta.SriRespuestaInvalidaException;
 import ec.edu.udla.arquitecturac4.consulta.sri.dto.SriVehiculoData;
+import ec.edu.udla.arquitecturac4.consulta.spi.VehiculoProvider;
 import java.net.ProtocolException;
 import java.net.SocketTimeoutException;
 import java.net.http.HttpTimeoutException;
@@ -11,6 +12,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.context.annotation.Profile;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -21,7 +23,8 @@ import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
 
 @Component
-public class SRIVehiculoClient {
+@Profile("live")
+public class SRIVehiculoClient implements VehiculoProvider {
 
     private final RestClient restClient;
     private final SriProperties properties;
@@ -31,6 +34,7 @@ public class SRIVehiculoClient {
         this.properties = properties;
     }
 
+    @Override
     public Optional<SriVehiculoData> buscar(String placa) {
         try {
             ResponseEntity<JsonNode> response = restClient.get()
@@ -70,35 +74,43 @@ public class SRIVehiculoClient {
         }
 
         JsonNode data = body.get("data");
-        if (data == null || !data.isArray()) {
-            throw new SriRespuestaInvalidaException();
-        }
-        if (data.isEmpty()) {
-            return Optional.empty();
-        }
-
-        List<JsonNode> records = new ArrayList<>();
-        data.forEach(record -> {
-            if (!record.isObject()) {
+        if (data != null) {
+            if (!data.isArray()) {
                 throw new SriRespuestaInvalidaException();
             }
-            records.add(record);
-        });
+            if (data.isEmpty()) {
+                return Optional.empty();
+            }
 
-        if (records.size() == 1) {
-            return Optional.of(toVehicle(records.getFirst(), requestedPlate));
+            List<JsonNode> records = new ArrayList<>();
+            data.forEach(record -> {
+                if (!record.isObject()) {
+                    throw new SriRespuestaInvalidaException();
+                }
+                records.add(record);
+            });
+
+            if (records.size() == 1) {
+                return Optional.of(toVehicle(records.getFirst(), requestedPlate));
+            }
+
+            List<JsonNode> matches = records.stream()
+                    .filter(record -> requestedPlate.equalsIgnoreCase(textValue(record.get("numeroPlaca"))))
+                    .toList();
+            if (matches.isEmpty()) {
+                return Optional.empty();
+            }
+            if (matches.size() > 1) {
+                throw new SriRespuestaInvalidaException();
+            }
+            return Optional.of(toVehicle(matches.getFirst(), requestedPlate));
         }
 
-        List<JsonNode> matches = records.stream()
-                .filter(record -> requestedPlate.equalsIgnoreCase(textValue(record.get("numeroPlaca"))))
-                .toList();
-        if (matches.isEmpty()) {
-            return Optional.empty();
+        if (body.has("numeroPlaca")) {
+            return Optional.of(toFlatVehicle(body, requestedPlate));
         }
-        if (matches.size() > 1) {
-            throw new SriRespuestaInvalidaException();
-        }
-        return Optional.of(toVehicle(matches.getFirst(), requestedPlate));
+
+        throw new SriRespuestaInvalidaException();
     }
 
     private SriVehiculoData toVehicle(JsonNode record, String requestedPlate) {
@@ -114,6 +126,22 @@ public class SRIVehiculoClient {
                 requiredText(record, "anioModelo"),
                 requiredText(record, "claseVehiculo"),
                 optionalText(record, "color"),
+                optionalText(record, "cilindraje"));
+    }
+
+    private SriVehiculoData toFlatVehicle(JsonNode record, String requestedPlate) {
+        String responsePlate = optionalText(record, "numeroPlaca");
+        if (responsePlate != null && !requestedPlate.equalsIgnoreCase(responsePlate)) {
+            throw new SriRespuestaInvalidaException();
+        }
+
+        return new SriVehiculoData(
+                responsePlate == null ? requestedPlate : responsePlate,
+                requiredText(record, "descripcionMarca"),
+                requiredText(record, "descripcionModelo"),
+                requiredText(record, "anioAuto"),
+                optionalText(record, "nombreClase"),
+                optionalText(record, "colorVehiculo1"),
                 optionalText(record, "cilindraje"));
     }
 

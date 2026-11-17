@@ -8,7 +8,7 @@ import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
 
 @Configuration
-@EnableConfigurationProperties(AntProperties.class)
+@EnableConfigurationProperties({AntProperties.class, AntSimulationProperties.class})
 public class AntClientConfiguration {
 
     @Bean("antRestClient")

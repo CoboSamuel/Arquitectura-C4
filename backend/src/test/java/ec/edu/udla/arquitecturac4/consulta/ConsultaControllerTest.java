@@ -6,8 +6,8 @@ import ec.edu.udla.arquitecturac4.consulta.ant.AntRespuestaInvalidaException;
 import ec.edu.udla.arquitecturac4.consulta.cache.ConsultaLicenciaResult;
 import ec.edu.udla.arquitecturac4.consulta.cache.LicenciaCacheNoConfiguradaException;
 import ec.edu.udla.arquitecturac4.consulta.cache.LicenciaCacheService;
-import ec.edu.udla.arquitecturac4.consulta.sri.SRIContribuyenteClient;
-import ec.edu.udla.arquitecturac4.consulta.sri.SRIVehiculoClient;
+import ec.edu.udla.arquitecturac4.consulta.spi.ContribuyenteProvider;
+import ec.edu.udla.arquitecturac4.consulta.spi.VehiculoProvider;
 import ec.edu.udla.arquitecturac4.consulta.sri.dto.SriContribuyenteResponse;
 import ec.edu.udla.arquitecturac4.consulta.sri.dto.SriFechasContribuyente;
 import ec.edu.udla.arquitecturac4.consulta.sri.dto.SriVehiculoData;
@@ -43,10 +43,10 @@ class ConsultaControllerTest {
     private MockMvc mockMvc;
 
     @MockitoBean
-    private SRIContribuyenteClient sriContribuyenteClient;
+    private ContribuyenteProvider sriContribuyenteClient;
 
     @MockitoBean
-    private SRIVehiculoClient sriVehiculoClient;
+    private VehiculoProvider sriVehiculoClient;
 
     @MockitoBean
     private LicenciaCacheService licenciaCacheService;

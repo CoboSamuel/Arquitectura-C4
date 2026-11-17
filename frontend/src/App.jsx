@@ -17,6 +17,10 @@ import {
 } from "./consulta/validacion.js";
 import { describirError } from "./consulta/mensajesError.js";
 import { calcularProgreso } from "./consulta/progreso.js";
+import {
+  describirEstadoLicencia,
+  describirOrigenLicencia,
+} from "./consulta/licencia.js";
 
 const PASOS = [
   { id: 1, numero: "01", titulo: "Datos personales" },
@@ -270,6 +274,7 @@ function LicenseResult({ result, ref }) {
     maximumFractionDigits: 2,
   }).format(result.puntosDisponibles);
   const fromCache = result.origen === "CACHE";
+  const fromSimulation = result.origen === "SIMULADO";
 
   return (
     <section
@@ -280,9 +285,9 @@ function LicenseResult({ result, ref }) {
     >
       <div className="license-result-topline">
         <h3 className="result-overline" id="license-result-title">PUNTOS DE TU LICENCIA</h3>
-        <span className={`origin-badge${fromCache ? " is-cache" : ""}`}>
+        <span className={`origin-badge${fromCache ? " is-cache" : ""}${fromSimulation ? " is-simulated" : ""}`}>
           <span aria-hidden="true">●</span>
-          {fromCache ? "Última consulta disponible" : "Actualizado ahora"}
+          {describirOrigenLicencia(result.origen)}
         </span>
       </div>
       <div className="points-display">
@@ -293,7 +298,7 @@ function LicenseResult({ result, ref }) {
         <Detail label="Fecha de consulta" value={fechaLegible(result.actualizadoEn)} />
         <Detail
           label="Estado"
-          value={result.desactualizado ? "Consulta anterior" : "Actualizado ahora"}
+          value={describirEstadoLicencia(result)}
         />
       </dl>
       {result.desactualizado && (
@@ -647,7 +652,7 @@ export default function App() {
               <div className="explanation-divider" />
               <p className="privacy-note" id="privacidad">
                 <span aria-hidden="true">◇</span>
-                Tus datos no se guardan en esta página. Este es un proyecto académico y no un portal oficial.
+                Las consultas dependen de la disponibilidad del SRI y la ANT. Este proyecto académico no es un portal oficial.
               </p>
             </aside>
           </div>
@@ -655,7 +660,7 @@ export default function App() {
 
         <footer className="page-footer">
           <span className="footer-disclaimer">
-            Proyecto académico de demostración · No es un portal oficial.
+            Proyecto académico · No es un portal oficial.
           </span>
         </footer>
       </main>

@@ -112,6 +112,34 @@ class SRIVehiculoClientTest {
     }
 
     @Test
+    void flatSriVehicleObjectMapsOfficialFieldNames() {
+        server.expect(requestTo(VEHICLE_URL))
+                .andRespond(withSuccess("""
+                        {
+                          "numeroPlaca": "ABC1234",
+                          "descripcionMarca": "MARCA SRI",
+                          "descripcionModelo": "MODELO SRI",
+                          "anioAuto": 2022,
+                          "nombreClase": "AUTOMOVIL",
+                          "colorVehiculo1": "ROJO",
+                          "cilindraje": 1600,
+                          "codigoVehiculo": "IDENTIFICADOR INTERNO"
+                        }
+                        """, MediaType.APPLICATION_JSON));
+
+        SriVehiculoData result = client.buscar(TEST_PLATE).orElseThrow();
+
+        assertEquals(TEST_PLATE, result.numeroPlaca());
+        assertEquals("MARCA SRI", result.marca());
+        assertEquals("MODELO SRI", result.modelo());
+        assertEquals("2022", result.anioModelo());
+        assertEquals("AUTOMOVIL", result.claseVehiculo());
+        assertEquals("ROJO", result.color());
+        assertEquals("1600", result.cilindraje());
+        server.verify();
+    }
+
+    @Test
     void malformedEnvelopeRaisesSanitizedInvalidResponseException() {
         server.expect(requestTo(VEHICLE_URL))
                 .andRespond(withSuccess("{\"objeto\":null}", MediaType.APPLICATION_JSON));

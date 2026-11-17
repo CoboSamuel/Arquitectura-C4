@@ -1,4 +1,6 @@
 spring:
+  profiles:
+    default: live
   application:
     name: sri-ant-backend
   jackson:
@@ -24,7 +26,11 @@ integrations:
     path: ${ANT_PATH:/PortalWEB/paginas/clientes/clp_grid_citaciones.jsp}
     connect-timeout: ${ANT_CONNECT_TIMEOUT:3s}
     read-timeout: ${ANT_READ_TIMEOUT:5s}
+    simulation:
+      points: ${ANT_SIMULATION_POINTS:30}
+      available: ${ANT_SIMULATION_AVAILABLE:true}
     cache:
       freshness: ${ANT_CACHE_FRESHNESS:15m}
       max-stale-ttl: ${ANT_CACHE_MAX_STALE_TTL:7d}
-      key-secret: ${ANT_CACHE_KEY_SECRET:}
+      # Solo para la demo local; en Redis Cloud se debe proporcionar un secreto propio.
+      key-secret: ${ANT_CACHE_KEY_SECRET:local-development-secret-for-ant-simulation-only}
