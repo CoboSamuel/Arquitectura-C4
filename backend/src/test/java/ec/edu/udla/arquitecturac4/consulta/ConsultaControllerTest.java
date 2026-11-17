@@ -1,0 +1,424 @@
+package ec.edu.udla.arquitecturac4.consulta;
+
+import ec.edu.udla.arquitecturac4.api.ApiExceptionHandler;
+import ec.edu.udla.arquitecturac4.consulta.ant.AntNoDisponibleException;
+import ec.edu.udla.arquitecturac4.consulta.ant.AntRespuestaInvalidaException;
+import ec.edu.udla.arquitecturac4.consulta.cache.ConsultaLicenciaResult;
+import ec.edu.udla.arquitecturac4.consulta.cache.LicenciaCacheNoConfiguradaException;
+import ec.edu.udla.arquitecturac4.consulta.cache.LicenciaCacheService;
+import ec.edu.udla.arquitecturac4.consulta.spi.ContribuyenteProvider;
+import ec.edu.udla.arquitecturac4.consulta.spi.VehiculoProvider;
+import ec.edu.udla.arquitecturac4.consulta.sri.dto.SriContribuyenteResponse;
+import ec.edu.udla.arquitecturac4.consulta.sri.dto.SriFechasContribuyente;
+import ec.edu.udla.arquitecturac4.consulta.sri.dto.SriVehiculoData;
+import java.util.List;
+import java.util.Optional;
+import java.math.BigDecimal;
+import java.time.Instant;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.context.annotation.Import;
+import org.springframework.http.MediaType;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.not;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+@WebMvcTest(ConsultaController.class)
+@Import({ConsultaService.class, ApiExceptionHandler.class})
+class ConsultaControllerTest {
+
+    @Autowired
+    private MockMvc mockMvc;
+
+    @MockitoBean
+    private ContribuyenteProvider sriContribuyenteClient;
+
+    @MockitoBean
+    private VehiculoProvider sriVehiculoClient;
+
+    @MockitoBean
+    private LicenciaCacheService licenciaCacheService;
+
+    @Test
+    void invalidContributorFieldsReturn400WithoutEchoingSubmittedValues() throws Exception {
+        String invalidEmail = "not-an-email";
+
+        mockMvc.perform(post("/api/v1/consultas/contribuyentes")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"correo":"not-an-email","ruc":"12"}
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
+                .andExpect(jsonPath("$.fieldErrors.length()").value(2))
+                .andExpect(jsonPath("$.fieldErrors[0].field").value("correo"))
+                .andExpect(jsonPath("$.fieldErrors[1].field").value("ruc"))
+                .andExpect(content().string(not(containsString(invalidEmail))));
+    }
+
+    @Test
+    void invalidPlateReturns400() throws Exception {
+        mockMvc.perform(post("/api/v1/consultas/vehiculos")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"placa":"??"}
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
+                .andExpect(jsonPath("$.fieldErrors[0].field").value("placa"));
+    }
+
+    @Test
+    void invalidNationalIdReturns400() throws Exception {
+        mockMvc.perform(post("/api/v1/consultas/licencias")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"cedula":"1234","placa":"ABC1234"}
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
+                .andExpect(jsonPath("$.fieldErrors[0].field").value("cedula"));
+    }
+
+    @Test
+    void malformedJsonReturns400() throws Exception {
+        mockMvc.perform(post("/api/v1/consultas/contribuyentes")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{malformed"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_JSON"))
+                .andExpect(jsonPath("$.fieldErrors").isEmpty());
+    }
+
+    @Test
+    void unknownRequestPropertiesAreRejectedByTheContract() throws Exception {
+        mockMvc.perform(post("/api/v1/consultas/vehiculos")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"placa":"ABC1234","campoDesconocido":"valor"}
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_JSON"))
+                .andExpect(jsonPath("$.fieldErrors").isEmpty());
+    }
+
+    @Test
+    void unknownContributorRequestPropertiesAreRejectedByTheContract() throws Exception {
+        mockMvc.perform(post("/api/v1/consultas/contribuyentes")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"correo":"persona@example.com","ruc":"9999999999999","extra":"valor"}
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_JSON"));
+    }
+
+    @Test
+    void unsupportedContentTypeReturns415InsteadOf500() throws Exception {
+        mockMvc.perform(post("/api/v1/consultas/vehiculos")
+                        .contentType(MediaType.TEXT_PLAIN)
+                        .content("ABC1234"))
+                .andExpect(status().isUnsupportedMediaType())
+                .andExpect(jsonPath("$.code").value("UNSUPPORTED_MEDIA_TYPE"));
+    }
+
+    @Test
+    void unsupportedMethodReturns405InsteadOf500() throws Exception {
+        mockMvc.perform(get("/api/v1/consultas/contribuyentes"))
+                .andExpect(status().isMethodNotAllowed())
+                .andExpect(jsonPath("$.code").value("METHOD_NOT_ALLOWED"));
+    }
+
+    @Test
+    void unacceptableResponseTypeReturns406InsteadOf500() throws Exception {
+        mockMvc.perform(post("/api/v1/consultas/vehiculos")
+                        .accept(MediaType.TEXT_PLAIN)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"placa":"ABC1234"}
+                                """))
+                .andExpect(status().isNotAcceptable())
+                .andExpect(content().string(""));
+    }
+
+    @Test
+    void naturalPersonRequestReturnsContributorSummary() throws Exception {
+        when(sriContribuyenteClient.existe("9999999999999")).thenReturn(true);
+        when(sriContribuyenteClient.obtener("9999999999999")).thenReturn(List.of(
+                new SriContribuyenteResponse(
+                        "9999999999999",
+                        "PERSONA DE PRUEBA",
+                        "ACTIVO",
+                        "ACTIVIDAD DE PRUEBA",
+                        "PERSONA NATURAL",
+                        "GENERAL",
+                        new SriFechasContribuyente("2020-01-02 00:00:00.0"))));
+
+        mockMvc.perform(post("/api/v1/consultas/contribuyentes")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"correo":"persona@example.com","ruc":"9999999999999"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.ruc").value("9999999999999"))
+                .andExpect(jsonPath("$.nombre").value("PERSONA DE PRUEBA"))
+                .andExpect(jsonPath("$.tipoContribuyente").value("PERSONA NATURAL"))
+                .andExpect(jsonPath("$.estado").value("ACTIVO"))
+                .andExpect(jsonPath("$.actividadEconomicaPrincipal").value("ACTIVIDAD DE PRUEBA"))
+                .andExpect(jsonPath("$.regimen").value("GENERAL"))
+                .andExpect(jsonPath("$.fechaInicioActividades").value("2020-01-02 00:00:00.0"))
+                .andExpect(jsonPath("$.representantesLegales").doesNotExist());
+    }
+
+    @Test
+    void unknownContributorReturns404WithoutEchoingRequestValues() throws Exception {
+        when(sriContribuyenteClient.existe("9999999999999")).thenReturn(false);
+
+        mockMvc.perform(post("/api/v1/consultas/contribuyentes")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"correo":"persona@example.com","ruc":"9999999999999"}
+                                """))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("CONTRIBUYENTE_NO_ENCONTRADO"))
+                .andExpect(content().string(not(containsString("9999999999999"))))
+                .andExpect(content().string(not(containsString("persona@example.com"))));
+
+        verify(sriContribuyenteClient, never()).obtener(anyString());
+    }
+
+    @Test
+    void nonNaturalContributorReturns422() throws Exception {
+        when(sriContribuyenteClient.existe("9999999999999")).thenReturn(true);
+        when(sriContribuyenteClient.obtener("9999999999999")).thenReturn(List.of(
+                new SriContribuyenteResponse("9999999999999", "ENTIDAD DE PRUEBA", "ACTIVO",
+                        "ACTIVIDAD DE PRUEBA", "SOCIEDAD", "GENERAL", null)));
+
+        mockMvc.perform(post("/api/v1/consultas/contribuyentes")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"correo":"persona@example.com","ruc":"9999999999999"}
+                                """))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.code").value("NO_ES_PERSONA_NATURAL"))
+                .andExpect(content().string(not(containsString("ENTIDAD DE PRUEBA"))))
+                .andExpect(content().string(not(containsString("9999999999999"))))
+                .andExpect(content().string(not(containsString("persona@example.com"))));
+    }
+
+    @Test
+    void unavailableSriReturns503WithoutEchoingRequestValues() throws Exception {
+        when(sriContribuyenteClient.existe("9999999999999"))
+                .thenThrow(new SriNoDisponibleException());
+
+        mockMvc.perform(post("/api/v1/consultas/contribuyentes")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"correo":"persona@example.com","ruc":"9999999999999"}
+                                """))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.code").value("SRI_NO_DISPONIBLE"))
+                .andExpect(content().string(not(containsString("9999999999999"))))
+                .andExpect(content().string(not(containsString("persona@example.com"))));
+    }
+
+    @Test
+    void invalidSriResponseReturns502WithoutEchoingRequestValues() throws Exception {
+        when(sriContribuyenteClient.existe("9999999999999"))
+                .thenThrow(new SriRespuestaInvalidaException());
+
+        mockMvc.perform(post("/api/v1/consultas/contribuyentes")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"correo":"persona@example.com","ruc":"9999999999999"}
+                                """))
+                .andExpect(status().isBadGateway())
+                .andExpect(jsonPath("$.code").value("SRI_RESPUESTA_INVALIDA"))
+                .andExpect(content().string(not(containsString("9999999999999"))))
+                .andExpect(content().string(not(containsString("persona@example.com"))));
+    }
+
+    @Test
+    void validVehicleRequestReturnsAllowlistedSummary() throws Exception {
+        when(sriVehiculoClient.buscar("ABC1234")).thenReturn(Optional.of(new SriVehiculoData(
+                "ABC1234", "MARCA DE PRUEBA", "MODELO DE PRUEBA", "2022",
+                "AUTOMOVIL", "AZUL", "1600")));
+
+        mockMvc.perform(post("/api/v1/consultas/vehiculos")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"placa":"ABC1234"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.placa").value("ABC1234"))
+                .andExpect(jsonPath("$.marca").value("MARCA DE PRUEBA"))
+                .andExpect(jsonPath("$.modelo").value("MODELO DE PRUEBA"))
+                .andExpect(jsonPath("$.anioModelo").value("2022"))
+                .andExpect(jsonPath("$.claseVehiculo").value("AUTOMOVIL"))
+                .andExpect(jsonPath("$.color").value("AZUL"))
+                .andExpect(jsonPath("$.cilindraje").value("1600"))
+                .andExpect(jsonPath("$.propietario").doesNotExist());
+    }
+
+    @Test
+    void unknownVehicleReturns404WithoutEchoingSubmittedPlate() throws Exception {
+        when(sriVehiculoClient.buscar("ABC1234")).thenReturn(Optional.empty());
+
+        mockMvc.perform(post("/api/v1/consultas/vehiculos")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"placa":"ABC1234"}
+                                """))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("VEHICULO_NO_ENCONTRADO"))
+                .andExpect(content().string(not(containsString("ABC1234"))));
+    }
+
+    @Test
+    void unavailableVehicleServiceReturns503WithoutEchoingPlate() throws Exception {
+        when(sriVehiculoClient.buscar("ABC1234")).thenThrow(new SriNoDisponibleException());
+
+        mockMvc.perform(post("/api/v1/consultas/vehiculos")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"placa":"ABC1234"}
+                                """))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.code").value("SRI_NO_DISPONIBLE"))
+                .andExpect(content().string(not(containsString("ABC1234"))));
+    }
+
+    @Test
+    void invalidVehicleResponseReturns502WithoutEchoingPlate() throws Exception {
+        when(sriVehiculoClient.buscar("ABC1234")).thenThrow(new SriRespuestaInvalidaException());
+
+        mockMvc.perform(post("/api/v1/consultas/vehiculos")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"placa":"ABC1234"}
+                                """))
+                .andExpect(status().isBadGateway())
+                .andExpect(jsonPath("$.code").value("SRI_RESPUESTA_INVALIDA"))
+                .andExpect(content().string(not(containsString("ABC1234"))));
+    }
+
+    @Test
+    void validLicenseRequestReturnsAllowlistedAntSummary() throws Exception {
+        when(licenciaCacheService.consultar("0000000000", "ZZZ9999"))
+                .thenReturn(new ConsultaLicenciaResult(
+                        new BigDecimal("25"), Instant.parse("2026-11-15T12:00:00Z"),
+                        ConsultaLicenciaResult.Origen.ANT, false));
+
+        mockMvc.perform(post("/api/v1/consultas/licencias")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"cedula":"0000000000","placa":"ZZZ9999"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.puntosDisponibles").value(25))
+                .andExpect(jsonPath("$.actualizadoEn").value("2026-11-15T12:00:00Z"))
+                .andExpect(jsonPath("$.origen").value("ANT"))
+                .andExpect(jsonPath("$.desactualizado").value(false))
+                .andExpect(content().string(not(containsString("0000000000"))))
+                .andExpect(content().string(not(containsString("ZZZ9999"))))
+                .andExpect(content().string(not(containsString("<html"))));
+    }
+
+    @Test
+    void staleLicenseSummaryReturnsCacheOriginAndStaleMarker() throws Exception {
+        when(licenciaCacheService.consultar("0000000000", "ZZZ9999"))
+                .thenReturn(new ConsultaLicenciaResult(
+                        new BigDecimal("20"), Instant.parse("2026-11-15T11:00:00Z"),
+                        ConsultaLicenciaResult.Origen.CACHE, true));
+
+        mockMvc.perform(post("/api/v1/consultas/licencias")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"cedula":"0000000000","placa":"ZZZ9999"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.origen").value("CACHE"))
+                .andExpect(jsonPath("$.desactualizado").value(true))
+                .andExpect(content().string(not(containsString("0000000000"))))
+                .andExpect(content().string(not(containsString("ZZZ9999"))));
+    }
+
+    @Test
+    void missingLicenseMapsTo404WithoutEchoingIdentifiers() throws Exception {
+        when(licenciaCacheService.consultar("0000000000", "ZZZ9999"))
+                .thenThrow(new LicenciaNoEncontradaException());
+
+        mockMvc.perform(post("/api/v1/consultas/licencias")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"cedula":"0000000000","placa":"ZZZ9999"}
+                                """))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("LICENCIA_NO_ENCONTRADA"))
+                .andExpect(content().string(not(containsString("0000000000"))))
+                .andExpect(content().string(not(containsString("ZZZ9999"))));
+    }
+
+    @Test
+    void invalidAntHtmlMapsTo502WithoutExternalContent() throws Exception {
+        when(licenciaCacheService.consultar("0000000000", "ZZZ9999"))
+                .thenThrow(new AntRespuestaInvalidaException());
+
+        mockMvc.perform(post("/api/v1/consultas/licencias")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"cedula":"0000000000","placa":"ZZZ9999"}
+                                """))
+                .andExpect(status().isBadGateway())
+                .andExpect(jsonPath("$.code").value("ANT_RESPUESTA_INVALIDA"))
+                .andExpect(content().string(not(containsString("0000000000"))))
+                .andExpect(content().string(not(containsString("ZZZ9999"))))
+                .andExpect(content().string(not(containsString("<html"))));
+    }
+
+    @Test
+    void unavailableAntWithoutCacheMapsTo503() throws Exception {
+        when(licenciaCacheService.consultar("0000000000", "ZZZ9999"))
+                .thenThrow(new AntNoDisponibleException());
+
+        mockMvc.perform(post("/api/v1/consultas/licencias")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"cedula":"0000000000","placa":"ZZZ9999"}
+                                """))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.code").value("ANT_NO_DISPONIBLE"))
+                .andExpect(content().string(not(containsString("0000000000"))))
+                .andExpect(content().string(not(containsString("ZZZ9999"))));
+    }
+
+    @Test
+    void missingLicenseCacheConfigurationMapsToGeneric503() throws Exception {
+        when(licenciaCacheService.consultar("0000000000", "ZZZ9999"))
+                .thenThrow(new LicenciaCacheNoConfiguradaException());
+
+        mockMvc.perform(post("/api/v1/consultas/licencias")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"cedula":"0000000000","placa":"ZZZ9999"}
+                                """))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.code").value("CACHE_NO_CONFIGURADA"))
+                .andExpect(content().string(not(containsString("0000000000"))))
+                .andExpect(content().string(not(containsString("ZZZ9999"))))
+                .andExpect(content().string(not(containsString("ANT_CACHE_KEY_SECRET"))));
+    }
+}
