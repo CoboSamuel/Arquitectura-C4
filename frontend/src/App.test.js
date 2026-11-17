@@ -4,7 +4,7 @@ import React from "react";
 import { renderToString } from "react-dom/server";
 import { createServer } from "vite";
 
-test("App renderiza el primer paso del flujo React", async (context) => {
+test("App renderiza una portada antes de iniciar la consulta", async (context) => {
   const vite = await createServer({
     appType: "custom",
     logLevel: "silent",
@@ -16,16 +16,21 @@ test("App renderiza el primer paso del flujo React", async (context) => {
   const markup = renderToString(React.createElement(App));
 
   assert.match(markup, /Consulta ciudadana/);
-  assert.match(markup, /Tus datos/);
-  assert.match(markup, /Correo electrónico/);
+  assert.match(markup, /Consulta tu información tributaria, vehicular y de licencia/);
+  assert.match(markup, /Quito|Ecuador/);
+  assert.match(markup, /quito-hero\.png/);
+  assert.match(markup, /Ilustración.*Quito|Quito.*ilustración/i);
+  assert.match(markup, /landing-visual/);
+  assert.match(markup, /¿Qué puedes consultar\?/);
+  assert.match(markup, /Iniciar consulta/);
+  assert.match(markup, /Datos personales/);
   assert.match(markup, /Saltar al contenido principal/);
   assert.doesNotMatch(
     markup,
     /Demostración académica con datos ficticios|demo@example\.test|0000000000000|ZZZ9999|0000000000|No ingreses información personal real/,
   );
-  assert.match(markup, /role="progressbar"/);
-  assert.match(markup, /aria-valuenow="0"/);
-  assert.match(markup, /Paso 1 de 3/);
+  assert.doesNotMatch(markup, /role="progressbar"/);
+  assert.doesNotMatch(markup, /<form/);
   assert.doesNotMatch(markup, /REST|JSON|React|Backend Java|Arquitectura C4|Redis Cloud|Verificación tributaria/i);
   assert.doesNotMatch(markup, /Reintentar consulta/);
 });

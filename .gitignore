@@ -4,6 +4,7 @@
 # React / Vite
 /frontend/node_modules/
 /frontend/dist/
+/frontend/.vite/
 
 # Environment files: keep only the safe template versionable
 .env

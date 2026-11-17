@@ -1,7 +1,9 @@
+import { DOMINIOS_PERMITIDOS, sugerirCorreccionDominio } from "./dominioCorreo.js";
+
 const CORREO_MAXIMO = 254;
 const CORREO_FORMATO = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const RUC_FORMATO = /^\d{13}$/;
-const PLACA_FORMATO = /^[A-Za-z0-9-]{5,8}$/;
+const PLACA_FORMATO = /^[A-Za-z0-9]{5,8}$/;
 const CEDULA_FORMATO = /^\d{10}$/;
 
 function textoRecortado(value) {
@@ -17,6 +19,12 @@ export function validarCorreo(value) {
   if (!CORREO_FORMATO.test(correo)) {
     return "Ingrese un correo electrónico válido.";
   }
+  const sugerenciaDominio = sugerirCorreccionDominio(correo);
+  if (sugerenciaDominio) return sugerenciaDominio.sugerencia;
+  const dominio = correo.split("@")[1].toLowerCase();
+  if (!DOMINIOS_PERMITIDOS.includes(dominio)) {
+    return "Usa un correo de Gmail, Yahoo, Hotmail, Outlook, iCloud o Proton.";
+  }
   return null;
 }
 
@@ -31,7 +39,7 @@ export function validarRuc(value) {
 export function validarPlaca(value) {
   const placa = textoRecortado(value);
   if (!PLACA_FORMATO.test(placa)) {
-    return "La placa debe tener de 5 a 8 letras, números o guiones.";
+    return "La placa debe tener de 5 a 8 letras y números, sin espacios ni guiones.";
   }
   return null;
 }

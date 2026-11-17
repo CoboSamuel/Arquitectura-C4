@@ -15,6 +15,7 @@ import {
   validarPlaca,
   validarRuc,
 } from "./consulta/validacion.js";
+import { errorVisibleCampo } from "./consulta/validacionEnVivo.js";
 import { describirError } from "./consulta/mensajesError.js";
 import { calcularProgreso } from "./consulta/progreso.js";
 import {
@@ -36,8 +37,8 @@ const AYUDA_POR_PASO = {
   },
   2: {
     etiqueta: "Sobre la placa",
-    texto: "Escríbela tal como aparece en la matrícula. Puedes volver y corregirla antes de continuar.",
-    items: ["No incluyas espacios", "Ejemplo: ABC1234"],
+    texto: "Escríbela tal como aparece en la matrícula, todo junto. Puedes volver y corregirla antes de continuar.",
+    items: ["No incluyas espacios ni guiones", "Ejemplo: PCN1818"],
   },
   3: {
     etiqueta: "Sobre los puntos",
@@ -72,19 +73,22 @@ function unirTexto(...partes) {
     .join(" ");
 }
 
-function FormField({ id, label, helper, error, value, onChange, ...inputProps }) {
+function FormField({ id, label, helper, error, valid, value, onChange, onBlur, ...inputProps }) {
   const helperId = `${id}-helper`;
   const errorId = `${id}-error`;
+  const fieldClassName = `form-field${error ? " has-error" : ""}${valid ? " has-success" : ""}`;
 
   return (
-    <div className="form-field">
+    <div className={fieldClassName}>
       <label htmlFor={id}>{label}</label>
       <input
         id={id}
         value={value}
         onChange={onChange}
+        onBlur={onBlur}
         aria-invalid={Boolean(error)}
         aria-describedby={error ? errorId : helperId}
+        data-valid={valid ? "true" : undefined}
         {...inputProps}
       />
       {error ? (
@@ -93,6 +97,120 @@ function FormField({ id, label, helper, error, value, onChange, ...inputProps })
         <p className="field-helper" id={helperId}>{helper}</p>
       )}
     </div>
+  );
+}
+
+function LandingPage({ onStart }) {
+  return (
+    <section className="landing-page" aria-labelledby="landing-title">
+      <div className="landing-content">
+        <div className="landing-copy">
+          <p className="eyebrow">SERVICIO DE CONSULTA CIUDADANA · ECUADOR</p>
+          <h1 id="landing-title">Consulta tus datos en un solo lugar</h1>
+          <p className="landing-intro">
+            Consulta tu información tributaria, vehicular y de licencia en un recorrido sencillo de tres pasos.
+          </p>
+          <button className="primary-button landing-button" type="button" onClick={onStart}>
+            Iniciar consulta
+            <span aria-hidden="true">→</span>
+          </button>
+          <p className="landing-note">
+            Ten a mano tu correo, RUC, placa y cédula. La consulta es guiada y puedes revisar tus datos antes de continuar.
+          </p>
+        </div>
+
+        <div className="landing-overview">
+          <p className="landing-overview-label">¿Qué puedes consultar?</p>
+          <div className="landing-overview-list">
+            <div className="landing-overview-item">
+              <span className="landing-overview-number">01</span>
+              <div>
+                <strong>Datos personales</strong>
+                <span>Información del RUC de una persona natural.</span>
+              </div>
+            </div>
+            <div className="landing-overview-item">
+              <span className="landing-overview-number">02</span>
+              <div>
+                <strong>Vehículo</strong>
+                <span>Características básicas a partir de la placa.</span>
+              </div>
+            </div>
+            <div className="landing-overview-item">
+              <span className="landing-overview-number">03</span>
+              <div>
+                <strong>Licencia</strong>
+                <span>Puntos disponibles de la licencia del titular.</span>
+              </div>
+            </div>
+          </div>
+          <p className="landing-disclaimer">Proyecto académico · No es un portal oficial.</p>
+        </div>
+      </div>
+
+      <figure className="landing-visual">
+        <img
+          className="landing-image"
+          src="/quito-hero.png"
+          alt="Ilustración editorial de Quito en el valle andino del Ecuador"
+        />
+        <figcaption>
+          <span>Quito, Ecuador</span>
+          <span>Un recorrido claro para tus trámites</span>
+        </figcaption>
+      </figure>
+    </section>
+  );
+}
+
+export function ConsultaBanner({ paso }) {
+  return (
+    <section className="consulta-banner" aria-labelledby="consulta-banner-title">
+      <div className="consulta-banner-copy">
+        <p className="consulta-banner-kicker">QUITO · ECUADOR</p>
+        <h2 id="consulta-banner-title">Un recorrido claro para tus trámites</h2>
+        <p>
+          Completa cada paso con calma. Aquí podrás revisar tus datos antes de continuar con la siguiente consulta.
+        </p>
+        <div className="consulta-banner-meta" aria-label={`Paso actual ${paso} de 3`}>
+          <span className="consulta-banner-step">0{paso}</span>
+          <span>Paso actual de tu consulta</span>
+        </div>
+      </div>
+      <div className="consulta-banner-image">
+        <img
+          src="/quito-hero.png"
+          alt="Vista ilustrada de Quito y sus montañas"
+        />
+      </div>
+    </section>
+  );
+}
+
+export function ConsultaAside({ ayuda }) {
+  return (
+    <aside className="explanation-panel" id="ayuda" aria-label="Información útil">
+      <div className="aside-landscape">
+        <img src="/quito-hero.png" alt="Paisaje ilustrado de Quito" />
+        <span>QUITO · ECUADOR</span>
+      </div>
+      <div className="explanation-content">
+        <div className="explanation-label">
+          <span className="explanation-icon" aria-hidden="true">i</span>
+          <span>INFORMACIÓN ÚTIL</span>
+        </div>
+        <h3>{ayuda.etiqueta}</h3>
+        <p className="explanation-copy">{ayuda.texto}</p>
+        <ul className="help-list">
+          {ayuda.items.map((item) => <li key={item}>{item}</li>)}
+        </ul>
+        <div className="explanation-divider" />
+        <p className="privacy-note" id="privacidad">
+          <span aria-hidden="true">◇</span>
+          Las consultas dependen de la disponibilidad del SRI y la ANT. Este proyecto académico no es un portal oficial.
+        </p>
+      </div>
+    </aside>
   );
 }
 
@@ -313,6 +431,8 @@ function LicenseResult({ result, ref }) {
 export default function App() {
   const [state, dispatch] = useReducer(reducirConsulta, estadoInicialConsulta);
   const [fieldErrors, setFieldErrors] = useState({});
+  const [touchedFields, setTouchedFields] = useState({});
+  const [started, setStarted] = useState(false);
   const requestInFlight = useRef(false);
   const headingRef = useRef(null);
   const errorRef = useRef(null);
@@ -327,6 +447,10 @@ export default function App() {
       headingRef.current?.focus();
     }
   }, [state.paso]);
+
+  useEffect(() => {
+    if (started) headingRef.current?.focus();
+  }, [started]);
 
   // Si la consulta falla, el foco pasa al aviso de error.
   useEffect(() => {
@@ -349,6 +473,7 @@ export default function App() {
   function goToStep(paso) {
     dispatch({ type: "paso/volver", paso });
     setFieldErrors({});
+    setTouchedFields({});
   }
 
   function changeField(campo, valor) {
@@ -366,11 +491,20 @@ export default function App() {
     });
   }
 
+  function touchField(campo) {
+    setTouchedFields((current) => ({ ...current, [campo]: true }));
+  }
+
+  function iniciarConsulta() {
+    setStarted(true);
+  }
+
   async function ejecutarConsulta(consulta, resultadoAction) {
     if (requestInFlight.current) return;
     requestInFlight.current = true;
     dispatch({ type: "solicitud/iniciada" });
     setFieldErrors({});
+    setTouchedFields({});
 
     try {
       const resultado = await consulta();
@@ -401,6 +535,7 @@ export default function App() {
       Object.entries(errors).filter(([, message]) => message),
     );
     setFieldErrors(foundErrors);
+    setTouchedFields((current) => ({ ...current, correo: true, ruc: true }));
     if (Object.keys(foundErrors).length > 0) {
       enfocarCampoPendiente.current = true;
       return;
@@ -420,6 +555,7 @@ export default function App() {
     event?.preventDefault();
     const placaError = validarPlaca(state.placa);
     setFieldErrors(placaError ? { placa: placaError } : {});
+    setTouchedFields((current) => ({ ...current, placa: true }));
     if (placaError) {
       enfocarCampoPendiente.current = true;
       return;
@@ -436,6 +572,7 @@ export default function App() {
     event?.preventDefault();
     const cedulaError = validarCedula(state.cedula);
     setFieldErrors(cedulaError ? { cedula: cedulaError } : {});
+    setTouchedFields((current) => ({ ...current, cedula: true }));
     if (cedulaError) {
       enfocarCampoPendiente.current = true;
       return;
@@ -454,10 +591,17 @@ export default function App() {
   function reiniciarConsulta() {
     dispatch({ type: "consulta/reiniciada" });
     setFieldErrors({});
+    setTouchedFields({});
   }
 
   const ayuda = AYUDA_POR_PASO[state.paso];
   const tieneResultados = Boolean(state.contribuyente || state.vehiculo || state.licencia);
+  const erroresVisibles = {
+    correo: fieldErrors.correo || errorVisibleCampo("correo", state.correo, touchedFields.correo),
+    ruc: fieldErrors.ruc || errorVisibleCampo("ruc", state.ruc, touchedFields.ruc),
+    placa: fieldErrors.placa || errorVisibleCampo("placa", state.placa, touchedFields.placa),
+    cedula: fieldErrors.cedula || errorVisibleCampo("cedula", state.cedula, touchedFields.cedula),
+  };
 
   return (
     <div className="app-shell">
@@ -468,7 +612,9 @@ export default function App() {
           <span className="brand-name">Consulta ciudadana</span>
         </a>
         <nav className="topnav" aria-label="Secciones de la página">
-          <a href="#consulta">Iniciar consulta</a>
+          <a href={started ? "#consulta" : "#inicio"} onClick={!started ? iniciarConsulta : undefined}>
+            Iniciar consulta
+          </a>
           <a href="#ayuda">Ayuda</a>
         </nav>
         <div className="topbar-note">
@@ -478,7 +624,9 @@ export default function App() {
       </header>
 
       <main className="page-content" id="inicio" tabIndex={-1}>
-        <section className="page-heading">
+        {!started && <LandingPage onStart={iniciarConsulta} />}
+
+        {started && <section className="page-heading">
           <div>
             <p className="eyebrow">CONSULTA CIUDADANA</p>
             <h1>Consulta tus datos</h1>
@@ -491,9 +639,11 @@ export default function App() {
               <li>Cédula del titular</li>
             </ul>
           </div>
-        </section>
+        </section>}
 
-        <section className="workspace-card" id="consulta" aria-label="Consulta paso a paso">
+        {started && <ConsultaBanner paso={state.paso} />}
+
+        {started && <section className="workspace-card" id="consulta" aria-label="Consulta paso a paso">
           <Stepper state={state} onGoToStep={goToStep} />
           <ProgressBar state={state} />
 
@@ -541,11 +691,13 @@ export default function App() {
                     autoComplete="email"
                     placeholder="nombre@ejemplo.com"
                     maxLength={254}
-                    helper="Lo usaremos solo para esta consulta."
+                    helper="Usa un proveedor permitido, por ejemplo Gmail o Yahoo."
                     disabled={state.cargando}
                     value={state.correo}
-                    error={fieldErrors.correo}
+                    error={erroresVisibles.correo}
+                    valid={Boolean(state.correo.trim() && !erroresVisibles.correo)}
                     onChange={(event) => changeField("correo", event.target.value)}
+                    onBlur={() => touchField("correo")}
                   />
                   <FormField
                     id="ruc"
@@ -558,8 +710,10 @@ export default function App() {
                     helper="Ingresa los 13 dígitos del RUC de una persona natural."
                     disabled={state.cargando}
                     value={state.ruc}
-                    error={fieldErrors.ruc}
+                    error={erroresVisibles.ruc}
+                    valid={Boolean(state.ruc.trim() && !erroresVisibles.ruc)}
                     onChange={(event) => changeField("ruc", event.target.value)}
+                    onBlur={() => touchField("ruc")}
                   />
                   {state.error && (
                     <ErrorNotice error={state.error} onRetry={() => submitContribuyente()} ref={errorRef} />
@@ -581,15 +735,18 @@ export default function App() {
                     type="text"
                     inputMode="text"
                     autoComplete="off"
-                    placeholder="Ej. ABC1234"
+                    placeholder="Ej. PCN1818"
                     autoCapitalize="characters"
                     spellCheck={false}
+                    pattern="[A-Za-z0-9]{5,8}"
                     maxLength={8}
-                    helper="Escríbela tal como aparece en la matrícula."
+                    helper="Escribe entre 5 y 8 letras y números, sin espacios ni guiones."
                     disabled={state.cargando}
                     value={state.placa}
-                    error={fieldErrors.placa}
+                    error={erroresVisibles.placa}
+                    valid={Boolean(state.placa.trim() && !erroresVisibles.placa)}
                     onChange={(event) => changeField("placa", event.target.value)}
+                    onBlur={() => touchField("placa")}
                   />
                   {state.error && (
                     <ErrorNotice error={state.error} onRetry={() => submitVehiculo()} ref={errorRef} />
@@ -622,8 +779,10 @@ export default function App() {
                       helper="Escribe los 10 dígitos de la cédula del titular."
                       disabled={state.cargando}
                       value={state.cedula}
-                      error={fieldErrors.cedula}
+                      error={erroresVisibles.cedula}
+                      valid={Boolean(state.cedula.trim() && !erroresVisibles.cedula)}
                       onChange={(event) => changeField("cedula", event.target.value)}
+                      onBlur={() => touchField("cedula")}
                     />
                     {state.error && (
                       <ErrorNotice error={state.error} onRetry={() => submitLicencia()} ref={errorRef} />
@@ -639,24 +798,9 @@ export default function App() {
               )}
             </section>
 
-            <aside className="explanation-panel" id="ayuda" aria-label="Información útil">
-              <div className="explanation-label">
-                <span className="explanation-icon" aria-hidden="true">i</span>
-                <span>INFORMACIÓN ÚTIL</span>
-              </div>
-              <h3>{ayuda.etiqueta}</h3>
-              <p className="explanation-copy">{ayuda.texto}</p>
-              <ul className="help-list">
-                {ayuda.items.map((item) => <li key={item}>{item}</li>)}
-              </ul>
-              <div className="explanation-divider" />
-              <p className="privacy-note" id="privacidad">
-                <span aria-hidden="true">◇</span>
-                Las consultas dependen de la disponibilidad del SRI y la ANT. Este proyecto académico no es un portal oficial.
-              </p>
-            </aside>
+            <ConsultaAside ayuda={ayuda} />
           </div>
-        </section>
+        </section>}
 
         <footer className="page-footer">
           <span className="footer-disclaimer">
